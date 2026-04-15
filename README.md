@@ -1,18 +1,35 @@
 # execution-intent-sdk
 
-> A minimal SDK for execution-bound commitments on top of delegation-framework primitives.
+Minimal SDK for execution-bound commitments on top of delegation-framework.
 
-Enables exact execution intent to be signed and enforced at redemption - by a specific signer, once, before a deadline.
+## Problem
 
----
+Delegated permissions define what is allowed, but not what is executed.
+This creates an execution gap.
 
-## The execution gap
+A relayer or agent constructing calldata offchain can mutate parameters within policy bounds and still pass validation.
 
-Delegated permissions define what is allowed. They do not always define what exact calldata gets executed at redemption.
+## Solution
 
-When calldata is constructed offchain by a relayer or agent, a gap opens between what the delegator authorized and what actually executes. Policy-based enforcers (selector checks, value limits) reduce this gap but do not close it entirely - a relayer can still mutate parameters within policy bounds.
+Sign exact execution intent and enforce it at redemption.
 
-This SDK addresses that gap.
+    Execution intent turns "what is allowed" into "what must be executed."
+
+    import { createIntent, buildSigningPayload } from "execution-intent-sdk";
+
+    const intent = createIntent({
+      account:  "0xYourSmartAccount",
+      target:   "0xUSDC",
+      value:    0n,
+      data:     "0xa9059cbb...", // transfer(Bob, 100 USDC)
+      nonce:    1n,
+      deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+    });
+
+    const signingPayload = buildSigningPayload(intent, domain);
+    // const signature = await walletClient.signTypedData(signingPayload);
+
+All fields — target, calldata, signer, nonce, deadline — are committed together in one EIP-712 signature. Partial satisfaction reverts.
 
 ---
 
@@ -52,7 +69,7 @@ Guarantees are stacked as separate caveats on a delegation:
 - IdEnforcer or NonceEnforcer: replay protection
 - TimestampEnforcer: deadline
 
-Each guarantee is independent. The boundary is assembled from pieces.
+Guarantees are expressed independently. The boundary is assembled at enforcement time.
 
 When to use:
 - guarantees may be reused independently
@@ -88,7 +105,9 @@ If each guarantee can be satisfied independently, composition is likely the bett
 
 This is a higher-level pattern / SDK built on top of delegation-framework composable primitives.
 
-It does not replace composition. It packages one specific trust boundary - execution-bound commitments - into a reusable flow for cases where exact execution intent is the right model.
+It does not replace composition. It packages one specific trust boundary into a reusable flow:
+
+    Execution intent turns "what is allowed" into "what must be executed."
 
 ---
 
