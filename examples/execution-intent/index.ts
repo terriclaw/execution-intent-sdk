@@ -13,7 +13,7 @@ import {
   signIntent,
   verifySignedIntent,
   recoverIntentSigner,
-  matchesExecution,
+  executionMatchesIntent,
   isDeadlineValid,
   encodeIntentArgs,
   hashIntent,
@@ -96,14 +96,15 @@ console.log();
 // Step 6: Check execution matching (what enforcer does on-chain)
 // ---------------------------------------------------------------------------
 console.log("Step 6: Check execution matching");
-const exactMatch = matchesExecution(intent, intent.target, intent.value, calldata);
+const exactMatch = executionMatchesIntent(intent, intent.target, intent.value, calldata);
 console.log("  exact match (correct calldata):", exactMatch);
 
+// simulate relayer mutation — change amount by 1 wei
 const mutatedCalldata = ("0xa9059cbb" +
   "000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" +
   "0000000000000000000000000000000000000000000000056bc75e2d63100001" // +1 wei mutation
 ) as `0x${string}`;
-const mutatedMatch = matchesExecution(intent, intent.target, intent.value, mutatedCalldata);
+const mutatedMatch = executionMatchesIntent(intent, intent.target, intent.value, mutatedCalldata);
 console.log("  exact match (mutated calldata): ", mutatedMatch);
 console.log();
 

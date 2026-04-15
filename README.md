@@ -7,7 +7,7 @@ Minimal SDK for execution-bound commitments on top of delegation-framework.
 Delegated permissions define what is allowed, but not what is executed.
 This creates an execution gap.
 
-A relayer or agent constructing calldata offchain can mutate parameters within policy bounds and still pass validation.
+A relayer or agent constructing calldata offchain can mutate parameters within policy bounds and still pass validation. This is especially relevant for agent and relayer-based execution.
 
 ## Solution
 

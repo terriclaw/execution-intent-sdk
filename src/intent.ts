@@ -27,7 +27,7 @@ export function createIntent(params: {
 
 // Check whether an actual execution exactly matches a signed intent.
 // This mirrors what the on-chain enforcer checks at redemption.
-export function matchesExecution(
+export function executionMatchesIntent(
   intent:          ExecutionIntent,
   executionTarget: string,
   executionValue:  bigint,
