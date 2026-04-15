@@ -1,14 +1,13 @@
 // eip712.ts
-// EIP-712 typed data definitions for ExecutionIntent.
+// EIP-712 typed data definitions and hashing for ExecutionIntent.
 //
-// The signed artifact contains all fields that must be enforced together:
+// The signed artifact contains all fields enforced together:
 // account, target, value, dataHash, nonce, deadline.
 //
 // dataHash = keccak256(data) binds the selector and all calldata arguments.
-// Signing dataHash instead of raw data keeps the artifact compact while
-// remaining fully binding.
+// Signing dataHash instead of raw data keeps the artifact compact and binding.
 
-import { keccak256, encodePacked, encodeAbiParameters, parseAbiParameters } from "viem";
+import { keccak256, encodePacked, encodeAbiParameters, parseAbiParameters, hashTypedData } from "viem";
 import type { ExecutionIntent, IntentDomain } from "./types.js";
 
 export const EXECUTION_INTENT_TYPE = [
@@ -27,6 +26,12 @@ export const EXECUTION_INTENT_TYPEHASH = keccak256(
   encodePacked(["string"], [EXECUTION_INTENT_TYPE_STRING])
 );
 
+// Compute keccak256 of the raw calldata.
+export function dataHash(intent: ExecutionIntent): `0x${string}` {
+  return keccak256(intent.data as `0x${string}`);
+}
+
+// Build the EIP-712 typed data payload for wallet signing.
 export function intentTypedData(intent: ExecutionIntent, domain: IntentDomain) {
   return {
     domain: {
@@ -50,6 +55,8 @@ export function intentTypedData(intent: ExecutionIntent, domain: IntentDomain) {
   };
 }
 
-export function dataHash(intent: ExecutionIntent): `0x${string}` {
-  return keccak256(intent.data as `0x${string}`);
+// Compute the EIP-712 digest for an intent.
+// This is what gets signed — and what the on-chain enforcer recomputes.
+export function hashIntent(intent: ExecutionIntent, domain: IntentDomain): `0x${string}` {
+  return hashTypedData(intentTypedData(intent, domain));
 }

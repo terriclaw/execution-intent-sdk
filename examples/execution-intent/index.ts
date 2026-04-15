@@ -1,95 +1,140 @@
 // examples/execution-intent/index.ts
 //
-// Flow B: Execution Intent (atomic commitment)
+// Flow B: Execution Intent - atomic commitment
 //
-// Goal: safe third-party execution on behalf of a user.
+// This example is fully runnable. It uses a local private key to sign
+// a real EIP-712 execution intent, verifies the signature, recovers
+// the signer, and encodes the args for on-chain submission.
 //
-// In the execution intent model, all guarantees are bundled into a single
-// EIP-712 signed artifact at redemption time:
-//   - exact calldata (dataHash)
-//   - signer binding (explicit authorized signer)
-//   - nonce (per-execution replay protection)
-//   - deadline (expiry)
-//
-// A specific signer signs this artifact at redemption time — not at delegation time.
-// The enforcer verifies all fields together as one atomic commitment.
-//
-// When to use this:
-//   - when a specific agent/relayer must authorize exact execution
-//   - when calldata is determined close to execution, not at delegation time
-//   - when partial satisfaction changes the trust assumption
+// Run: npx tsx examples/execution-intent/index.ts
 
-import { createIntent, buildSigningPayload, wrapSignedIntent, defaultDomain, verifyIntentMatch } from "../../src/index.js";
+import {
+  createIntent,
+  signIntent,
+  verifySignedIntent,
+  recoverIntentSigner,
+  matchesExecution,
+  isDeadlineValid,
+  encodeIntentArgs,
+  hashIntent,
+  dataHash,
+  defaultDomain,
+} from "../../src/index.js";
 
-console.log("=== Flow B: Execution Intent (Atomic Commitment) ===");
+// ---------------------------------------------------------------------------
+// Setup: local test wallet (never use a real key in production)
+// ---------------------------------------------------------------------------
+const PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as const;
+const ENFORCER_ADDRESS = "0x0000000000000000000000000000000000000001"; // placeholder
+const CHAIN_ID = 84532; // Base Sepolia
+
+const domain = defaultDomain(ENFORCER_ADDRESS, CHAIN_ID);
+
+// ---------------------------------------------------------------------------
+// Step 1: Create the intent
+// ---------------------------------------------------------------------------
+console.log("=== Execution Intent Flow ===");
 console.log();
+console.log("Step 1: Create intent");
 
-// Step 1: Build the execution intent
-// This is done close to execution time, not at delegation time.
+const calldata = ("0xa9059cbb" +                                          // transfer(address,uint256)
+  "000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" +   // to: 0xdeadbeef...
+  "0000000000000000000000000000000000000000000000056bc75e2d63100000"    // amount: 100 USDC
+) as `0x${string}`;
+
 const intent = createIntent({
-  account:  "0xAlice",           // the smart account
-  target:   "0xUSDC",            // USDC contract
+  account:  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", // anvil account 0
+  target:   "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC mainnet
   value:    0n,
-  data:     "0xa9059cbb" +        // transfer(address,uint256)
-            "000000000000000000000000Bob00000000000000000000000000000000000000" +
-            "0000000000000000000000000000000000000000000000056bc75e2d63100000", // 100 USDC
+  data:     calldata,
   nonce:    1n,
   deadline: BigInt(Math.floor(Date.now() / 1000) + 3600), // 1 hour
 });
 
-console.log("Step 1: ExecutionIntent created");
 console.log("  account: ", intent.account);
 console.log("  target:  ", intent.target);
-console.log("  nonce:   ", intent.nonce);
-console.log("  deadline:", intent.deadline);
+console.log("  nonce:   ", intent.nonce.toString());
+console.log("  deadline:", intent.deadline.toString());
+console.log("  dataHash:", dataHash(intent));
 console.log();
 
-// Step 2: Build signing payload
-// All fields are committed together in one EIP-712 artifact.
-const domain = defaultDomain("0xExecutionBoundCaveat", 84532); // Base Sepolia
-const signingPayload = buildSigningPayload(intent, domain);
-
-console.log("Step 2: EIP-712 signing payload built");
-console.log("  primaryType:", signingPayload.primaryType);
-console.log("  fields committed together:");
-console.log("    account, target, value, dataHash, nonce, deadline");
+// ---------------------------------------------------------------------------
+// Step 2: Hash the intent (EIP-712 digest)
+// ---------------------------------------------------------------------------
+console.log("Step 2: Hash intent (EIP-712 digest)");
+const digest = hashIntent(intent, domain);
+console.log("  digest:", digest);
 console.log();
 
-// Step 3: Signer signs the intent
-// (in practice: await walletClient.signTypedData(signingPayload))
-const signature = "0x<signed-by-authorized-agent>";
-const signedIntent = wrapSignedIntent(intent, "0xAuthorizedAgent", signature);
-
-console.log("Step 3: Authorized agent signs the intent");
-console.log("  signer:", signedIntent.signer);
-console.log("  all fields bound in one signature");
+// ---------------------------------------------------------------------------
+// Step 3: Sign the intent
+// ---------------------------------------------------------------------------
+console.log("Step 3: Sign intent with authorized signer");
+const signed = await signIntent(intent, domain, PRIVATE_KEY);
+console.log("  signer:   ", signed.signer);
+console.log("  signature:", signed.signature.slice(0, 20) + "...");
 console.log();
 
-// Step 4: Relayer submits with signed intent as caveat args
-console.log("Step 4: Relayer submits via DelegationManager.redeemDelegations");
-console.log("  caveat args = abi.encode(intent, signer, signature)");
-console.log("  enforcer verifies: account, target, value, dataHash, nonce, deadline");
-console.log("  all checked together — partial satisfaction reverts");
+// ---------------------------------------------------------------------------
+// Step 4: Verify the signature
+// ---------------------------------------------------------------------------
+console.log("Step 4: Verify signature");
+const valid = await verifySignedIntent(signed, domain);
+console.log("  valid:", valid);
 console.log();
 
-// Step 5: Verify intent match (what the enforcer does on-chain)
-const matches = verifyIntentMatch(
-  intent,
-  intent.target,
-  intent.value,
-  intent.data
-);
-
-console.log("Step 5: Enforcement check");
-console.log("  intent matches execution:", matches);
+// ---------------------------------------------------------------------------
+// Step 5: Recover signer from signature
+// ---------------------------------------------------------------------------
+console.log("Step 5: Recover signer from signature");
+const recovered = await recoverIntentSigner(intent, domain, signed.signature);
+console.log("  recovered:", recovered);
+console.log("  matches:  ", recovered.toLowerCase() === signed.signer.toLowerCase());
 console.log();
 
-console.log("Result: all guarantees enforced as one atomic commitment.");
+// ---------------------------------------------------------------------------
+// Step 6: Check execution matching (what enforcer does on-chain)
+// ---------------------------------------------------------------------------
+console.log("Step 6: Check execution matching");
+const exactMatch = matchesExecution(intent, intent.target, intent.value, calldata);
+console.log("  exact match (correct calldata):", exactMatch);
+
+const mutatedCalldata = ("0xa9059cbb" +
+  "000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" +
+  "0000000000000000000000000000000000000000000000056bc75e2d63100001" // +1 wei mutation
+) as `0x${string}`;
+const mutatedMatch = matchesExecution(intent, intent.target, intent.value, mutatedCalldata);
+console.log("  exact match (mutated calldata): ", mutatedMatch);
 console.log();
-console.log("Tradeoff:");
-console.log("  + single signed artifact at redemption time");
-console.log("  + explicit signer binding (agent/relayer must authorize)");
-console.log("  + partial satisfaction reverts (all-or-nothing)");
-console.log("  + calldata determined at redemption, not delegation time");
-console.log("  - less flexible: all guarantees are bundled");
-console.log("  - requires explicit signer at redemption time");
+
+// ---------------------------------------------------------------------------
+// Step 7: Check deadline
+// ---------------------------------------------------------------------------
+console.log("Step 7: Check deadline validity");
+console.log("  deadline valid:", isDeadlineValid(intent));
+console.log();
+
+// ---------------------------------------------------------------------------
+// Step 8: Encode args for on-chain submission
+// ---------------------------------------------------------------------------
+console.log("Step 8: Encode args for enforcer beforeHook");
+const encoded = encodeIntentArgs(intent, signed.signer, signed.signature);
+console.log("  encoded args (first 66 chars):", encoded.slice(0, 66) + "...");
+console.log("  total bytes:", (encoded.length - 2) / 2);
+console.log();
+
+// ---------------------------------------------------------------------------
+// Summary
+// ---------------------------------------------------------------------------
+console.log("=== Summary ===");
+console.log("Intent created:      yes");
+console.log("EIP-712 digest:      ", digest.slice(0, 20) + "...");
+console.log("Signature valid:     ", valid);
+console.log("Signer recovered:    ", recovered.toLowerCase() === signed.signer.toLowerCase());
+console.log("Execution matches:   ", exactMatch);
+console.log("Mutation blocked:    ", !mutatedMatch);
+console.log("Deadline valid:      ", isDeadlineValid(intent));
+console.log("Args encoded:        yes,", (encoded.length - 2) / 2, "bytes");
+console.log();
+console.log("This flow is what the on-chain enforcer verifies at redemption.");
+console.log("All guarantees are bound in one signed artifact.");

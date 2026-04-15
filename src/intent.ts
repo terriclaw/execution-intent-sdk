@@ -1,17 +1,17 @@
 // intent.ts
-// Builder and verification helpers for ExecutionIntent.
+// Builder, matching, and encoding helpers for ExecutionIntent.
 
-import { keccak256 } from "viem";
+import { keccak256, encodeAbiParameters, parseAbiParameters } from "viem";
 import type { ExecutionIntent } from "./types.js";
 import { dataHash } from "./eip712.js";
 
 // Build an ExecutionIntent.
-// dataHash is computed from the full calldata internally.
+// Raw calldata is stored; dataHash is derived on demand.
 export function createIntent(params: {
   account:  string;
   target:   string;
   value:    bigint;
-  data:     string;   // full calldata — will be hashed internally
+  data:     string;   // full calldata hex — hashed internally
   nonce:    bigint;
   deadline: bigint;
 }): ExecutionIntent {
@@ -25,40 +25,54 @@ export function createIntent(params: {
   };
 }
 
-// Verify that an execution matches a signed intent.
-// Returns true if all fields match exactly.
-export function verifyIntentMatch(
+// Check whether an actual execution exactly matches a signed intent.
+// This mirrors what the on-chain enforcer checks at redemption.
+export function matchesExecution(
   intent:          ExecutionIntent,
   executionTarget: string,
   executionValue:  bigint,
   executionData:   string
 ): boolean {
   return (
-    intent.target.toLowerCase()  === executionTarget.toLowerCase() &&
-    intent.value                 === executionValue &&
-    dataHash(intent)             === keccak256(executionData as `0x${string}`)
+    intent.target.toLowerCase() === executionTarget.toLowerCase() &&
+    intent.value                === executionValue &&
+    dataHash(intent)            === keccak256(executionData as `0x${string}`)
   );
 }
 
-// Encode args for caveat beforeHook (delegation-framework compatible).
-// args = abi.encode(ExecutionIntent, address signer, bytes signature)
+// Check whether an intent's deadline is still valid.
+export function isDeadlineValid(intent: ExecutionIntent, nowSeconds?: bigint): boolean {
+  if (intent.deadline === 0n) return true;
+  const now = nowSeconds ?? BigInt(Math.floor(Date.now() / 1000));
+  return now <= intent.deadline;
+}
+
+// ABI-encode the args for the caveat beforeHook call.
+// Matches the on-chain decoding:
+//   abi.decode(_args, (ExecutionIntent, address, bytes))
+// where ExecutionIntent is (account, target, value, dataHash, nonce, deadline).
 export function encodeIntentArgs(
   intent:    ExecutionIntent,
   signer:    string,
   signature: string
-): string {
-  // Compact representation for documentation purposes.
-  // In production, use abi.encode matching the enforcer's decoding.
-  return JSON.stringify({
-    intent: {
-      account:  intent.account,
-      target:   intent.target,
-      value:    intent.value.toString(),
-      dataHash: dataHash(intent),
-      nonce:    intent.nonce.toString(),
-      deadline: intent.deadline.toString(),
-    },
-    signer,
-    signature,
-  });
+): `0x${string}` {
+  return encodeAbiParameters(
+    parseAbiParameters([
+      "(address account, address target, uint256 value, bytes32 dataHash, uint256 nonce, uint256 deadline) intent",
+      "address signer",
+      "bytes signature",
+    ]),
+    [
+      {
+        account:  intent.account  as `0x${string}`,
+        target:   intent.target   as `0x${string}`,
+        value:    intent.value,
+        dataHash: dataHash(intent),
+        nonce:    intent.nonce,
+        deadline: intent.deadline,
+      },
+      signer as `0x${string}`,
+      signature as `0x${string}`,
+    ]
+  );
 }

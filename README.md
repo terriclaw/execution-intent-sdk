@@ -15,57 +15,52 @@ Sign exact execution intent and enforce it at redemption.
 
     Execution intent turns "what is allowed" into "what must be executed."
 
-    import { createIntent, buildSigningPayload } from "../src/index.js";
+## Quick start
+
+    npm install execution-intent-sdk
+
+    import {
+      createIntent,
+      signIntent,
+      verifySignedIntent,
+      matchesExecution,
+      encodeIntentArgs,
+      defaultDomain,
+    } from "execution-intent-sdk";
+
+    const domain = defaultDomain("0xYourEnforcer", 84532);
 
     const intent = createIntent({
       account:  "0xYourSmartAccount",
       target:   "0xUSDC",
       value:    0n,
-      data:     "0xa9059cbb...", // transfer(Bob, 100 USDC)
+      data:     "0xa9059cbb...", // transfer calldata
       nonce:    1n,
       deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
     });
 
-    const signingPayload = buildSigningPayload(intent, domain);
-    // const signature = await walletClient.signTypedData(signingPayload);
+    // Sign with a private key (backend/agent) or use buildSigningPayload for wallet signing
+    const signed = await signIntent(intent, domain, privateKey);
 
-All fields — target, calldata, signer, nonce, deadline — are committed together in one EIP-712 signature. Partial satisfaction reverts.
+    // Verify
+    const valid = await verifySignedIntent(signed, domain);
 
----
+    // Check execution matches intent (mirrors on-chain enforcement)
+    const ok = matchesExecution(intent, target, value, calldata);
 
-## What execution intent is
-
-An execution intent is a single EIP-712 signed artifact containing:
-
-- account: the smart account authorizing execution
-- target: call target
-- value: ETH value
-- dataHash: keccak256 of the full calldata (binds selector and all arguments)
-- nonce: replay protection, unique per (account, signer)
-- deadline: expiry
-
-All fields are committed together in one signature. Partial satisfaction is not possible - if any field deviates, the transaction reverts.
-
----
-
-## Flow
-
-    1. agent / signer constructs an ExecutionIntent at redemption time
-    2. agent signs the intent via EIP-712
-    3. intent + signature passed as caveat args to DelegationManager
-    4. enforcer verifies: exact calldata, signer, nonce, deadline - all together
-    5. execution proceeds or reverts atomically
+    // Encode for on-chain submission
+    const args = encodeIntentArgs(intent, signed.signer, signed.signature);
 
 ---
 
 ## Two approaches
 
-This repo demonstrates both paths for the same goal: safe third-party execution on behalf of a user.
+Both flows achieve the same goal: safe third-party execution on behalf of a user.
 
 ### Composable (delegation-framework style)
 
 Guarantees are stacked as separate caveats on a delegation:
-- ExactExecutionEnforcer: exact calldata (committed at delegation time)
+- ExactExecutionEnforcer: exact calldata committed at delegation time
 - IdEnforcer or NonceEnforcer: replay protection
 - TimestampEnforcer: deadline
 
@@ -84,78 +79,105 @@ The signing happens close to execution, not at delegation creation.
 When to use:
 - a specific agent must authorize exact execution
 - calldata is determined near execution time, not at delegation time
-- partial satisfaction changes the trust assumption
+- partial satisfaction changes the trust assumption (missing any one guarantee changes the security model)
 
 ---
 
-## When to use execution intent
+## API
 
-The execution intent pattern is appropriate when:
+    createIntent(params)
+      Build an ExecutionIntent. Raw calldata is stored; dataHash derived on demand.
 
-- exact execution + signer binding + nonce + deadline must hold together as one invariant
-- partial satisfaction is unsafe (missing any one guarantee changes the trust model)
-- calldata is constructed close to redemption, not at delegation time
-- you want one inspectable signed artifact that captures the full commitment
+    hashIntent(intent, domain)
+      Compute the EIP-712 digest. This is what the on-chain enforcer recomputes.
 
-If each guarantee can be satisfied independently, composition is likely the better fit.
+    signIntent(intent, domain, privateKey)
+      Sign with a private key. Returns SignedIntent.
+      For browser/wallet: use buildSigningPayload + wallet.signTypedData.
 
----
+    verifySignedIntent(signed, domain)
+      Verify a signature against the declared signer. Returns boolean.
 
-## Positioning
+    recoverIntentSigner(intent, domain, signature)
+      Recover the signer address from a signature.
 
-This is a higher-level pattern / SDK built on top of delegation-framework composable primitives.
+    matchesExecution(intent, target, value, data)
+      Check whether an actual execution exactly matches the signed intent.
+      Mirrors what the on-chain enforcer checks at redemption.
 
-It does not replace composition. It packages one specific trust boundary into a reusable flow:
+    isDeadlineValid(intent, nowSeconds?)
+      Check whether the intent deadline has passed.
 
-    Execution intent turns "what is allowed" into "what must be executed."
+    encodeIntentArgs(intent, signer, signature)
+      ABI-encode args for the caveat beforeHook call.
+      Compatible with ExecutionBoundCaveat / ExecutionBoundEnforcer decoding.
 
----
+    buildSigningPayload(intent, domain)
+      Returns typed data payload for wallet.signTypedData().
 
-## Quick start
-
-    import { createIntent, buildSigningPayload, wrapSignedIntent, defaultDomain } from "execution-intent-sdk";
-
-    const intent = createIntent({
-      account:  "0xYourSmartAccount",
-      target:   "0xUSDC",
-      value:    0n,
-      data:     "0xa9059cbb...",
-      nonce:    1n,
-      deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
-    });
-
-    const domain = defaultDomain("0xYourEnforcer", 84532);
-    const signingPayload = buildSigningPayload(intent, domain);
-
-    // sign with your wallet:
-    // const signature = await walletClient.signTypedData(signingPayload);
+    defaultDomain(verifyingContract, chainId?)
+      Convenience domain builder for local/testing use.
 
 ---
 
-## Examples
+## Running the examples
 
-    examples/
-      composition/       Flow A: composable delegation-framework style
-      execution-intent/  Flow B: atomic execution intent
+    npm install
+    npm run example:intent        # Flow B: execution intent (fully runnable)
+    npm run example:composition   # Flow A: composable delegation-framework style
 
-Run:
-    npx ts-node --esm examples/composition/index.ts
-    npx ts-node --esm examples/execution-intent/index.ts
+Flow B output shows a complete signing, verification, recovery, matching, and encoding flow with real cryptography.
 
 ---
 
 ## Structure
 
     src/
-      types.ts    ExecutionIntent type definitions
-      eip712.ts   EIP-712 typed data and hashing
-      intent.ts   createIntent, verifyIntentMatch, encodeIntentArgs
-      sign.ts     buildSigningPayload, wrapSignedIntent
-      index.ts    public SDK surface
+      types.ts     ExecutionIntent, SignedIntent, IntentDomain interfaces
+      eip712.ts    EIP-712 type definitions, dataHash, hashIntent
+      intent.ts    createIntent, matchesExecution, isDeadlineValid, encodeIntentArgs
+      sign.ts      signIntent, verifySignedIntent, recoverIntentSigner, buildSigningPayload
+      index.ts     public SDK surface
 
     examples/
-      composition/index.ts        composable path walkthrough
-      execution-intent/index.ts   execution intent path walkthrough
+      composition/index.ts        Flow A: composable path walkthrough
+      execution-intent/index.ts   Flow B: execution intent, fully runnable
+
+---
+
+## Intent model
+
+    interface ExecutionIntent {
+      account:  string;   // smart account authorizing execution
+      target:   string;   // call target
+      value:    bigint;   // ETH value
+      data:     string;   // full calldata hex
+      nonce:    bigint;   // replay guard, unique per (account, signer)
+      deadline: bigint;   // unix timestamp expiry, 0 = no expiry
+    }
+
+SDK stores raw calldata and derives dataHash internally.
+The on-chain enforcer receives dataHash, not raw calldata.
+
+---
+
+## On-chain integration
+
+The SDK is designed to work with ExecutionBoundCaveat / ExecutionBoundEnforcer.
+
+encodeIntentArgs produces ABI-encoded bytes matching:
+    abi.decode(_args, (ExecutionIntent, address signer, bytes signature))
+
+Reference enforcer: https://github.com/terriclaw/execution-bound-intent
+
+---
+
+## Positioning
+
+This is a pattern / SDK layer on top of delegation-framework composable primitives.
+It does not replace composition.
+
+    Execution intent turns "what is allowed" into "what must be executed."
 
 ---
 
