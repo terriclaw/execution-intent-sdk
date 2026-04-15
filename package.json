@@ -1,0 +1,18 @@
+{
+  "name": "execution-intent-sdk",
+  "version": "0.1.0",
+  "description": "A minimal SDK for execution-bound commitments on top of delegation-framework primitives",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "example:composition": "npx ts-node --esm examples/composition/index.ts",
+    "example:intent": "npx ts-node --esm examples/execution-intent/index.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  },
+  "dependencies": {
+    "viem": "^2.0.0"
+  }
+}
