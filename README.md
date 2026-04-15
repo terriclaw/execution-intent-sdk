@@ -15,7 +15,7 @@ Sign exact execution intent and enforce it at redemption.
 
     Execution intent turns "what is allowed" into "what must be executed."
 
-    import { createIntent, buildSigningPayload } from "execution-intent-sdk";
+    import { createIntent, buildSigningPayload } from "../src/index.js";
 
     const intent = createIntent({
       account:  "0xYourSmartAccount",
