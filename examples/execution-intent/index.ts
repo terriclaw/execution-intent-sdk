@@ -2,11 +2,12 @@
 //
 // Flow B: Execution Intent - atomic commitment
 //
-// This example is fully runnable. It uses a local private key to sign
-// a real EIP-712 execution intent, verifies the signature, recovers
-// the signer, and encodes the args for on-chain submission.
+// This example is fully runnable. It signs a real EIP-712 execution intent,
+// verifies the signature, recovers the signer, and encodes args for on-chain submission.
 //
-// Run: npx tsx examples/execution-intent/index.ts
+// Run:
+//   export PRIVATE_KEY=0x...
+//   npx tsx examples/execution-intent/index.ts
 
 import {
   createIntent,
@@ -22,9 +23,13 @@ import {
 } from "../../src/index.js";
 
 // ---------------------------------------------------------------------------
-// Setup: local test wallet (never use a real key in production)
+// Setup
 // ---------------------------------------------------------------------------
-const PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as const;
+const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}` | undefined;
+if (!PRIVATE_KEY) {
+  throw new Error("Missing PRIVATE_KEY. Set it via: export PRIVATE_KEY=0x...");
+}
+
 const ENFORCER_ADDRESS = "0x0000000000000000000000000000000000000001"; // placeholder
 const CHAIN_ID = 84532; // Base Sepolia
 
@@ -33,109 +38,88 @@ const domain = defaultDomain(ENFORCER_ADDRESS, CHAIN_ID);
 // ---------------------------------------------------------------------------
 // Step 1: Create the intent
 // ---------------------------------------------------------------------------
-console.log("=== Execution Intent Flow ===");
-console.log();
-console.log("Step 1: Create intent");
+console.log("=== Execution Intent Flow ===\nStep 1: Create intent");
 
-const calldata = ("0xa9059cbb" +                                          // transfer(address,uint256)
-  "000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" +   // to: 0xdeadbeef...
-  "0000000000000000000000000000000000000000000000056bc75e2d63100000"    // amount: 100 USDC
+const calldata = ("0xa9059cbb" +
+  "000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" +
+  "0000000000000000000000000000000000000000000000056bc75e2d63100000"
 ) as `0x${string}`;
 
 const intent = createIntent({
-  account:  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", // anvil account 0
-  target:   "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC mainnet
+  account:  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  target:   "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   value:    0n,
   data:     calldata,
   nonce:    1n,
-  deadline: BigInt(Math.floor(Date.now() / 1000) + 3600), // 1 hour
+  deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
 });
 
-console.log("  account: ", intent.account);
-console.log("  target:  ", intent.target);
-console.log("  nonce:   ", intent.nonce.toString());
-console.log("  deadline:", intent.deadline.toString());
-console.log("  dataHash:", dataHash(intent));
-console.log();
+console.log("  dataHash:", dataHash(intent), "\n");
 
 // ---------------------------------------------------------------------------
-// Step 2: Hash the intent (EIP-712 digest)
+// Step 2: Hash intent
 // ---------------------------------------------------------------------------
-console.log("Step 2: Hash intent (EIP-712 digest)");
+console.log("Step 2: Hash intent");
 const digest = hashIntent(intent, domain);
-console.log("  digest:", digest);
-console.log();
+console.log("  digest:", digest, "\n");
 
 // ---------------------------------------------------------------------------
-// Step 3: Sign the intent
+// Step 3: Sign intent
 // ---------------------------------------------------------------------------
-console.log("Step 3: Sign intent with authorized signer");
+console.log("Step 3: Sign intent");
 const signed = await signIntent(intent, domain, PRIVATE_KEY);
-console.log("  signer:   ", signed.signer);
-console.log("  signature:", signed.signature.slice(0, 20) + "...");
-console.log();
+console.log("  signer:", signed.signer, "\n");
 
 // ---------------------------------------------------------------------------
-// Step 4: Verify the signature
+// Step 4: Verify signature
 // ---------------------------------------------------------------------------
 console.log("Step 4: Verify signature");
 const valid = await verifySignedIntent(signed, domain);
-console.log("  valid:", valid);
-console.log();
+console.log("  valid:", valid, "\n");
 
 // ---------------------------------------------------------------------------
-// Step 5: Recover signer from signature
+// Step 5: Recover signer
 // ---------------------------------------------------------------------------
-console.log("Step 5: Recover signer from signature");
+console.log("Step 5: Recover signer");
 const recovered = await recoverIntentSigner(intent, domain, signed.signature);
-console.log("  recovered:", recovered);
-console.log("  matches:  ", recovered.toLowerCase() === signed.signer.toLowerCase());
-console.log();
+console.log("  recovered matches:", recovered.toLowerCase() === signed.signer.toLowerCase(), "\n");
 
 // ---------------------------------------------------------------------------
-// Step 6: Check execution matching (what enforcer does on-chain)
+// Step 6: Match execution
 // ---------------------------------------------------------------------------
-console.log("Step 6: Check execution matching");
+console.log("Step 6: Execution matching");
 const exactMatch = executionMatchesIntent(intent, intent.target, intent.value, calldata);
-console.log("  exact match (correct calldata):", exactMatch);
+console.log("  exact match:", exactMatch);
 
 // simulate relayer mutation — change amount by 1 wei
 const mutatedCalldata = ("0xa9059cbb" +
   "000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" +
-  "0000000000000000000000000000000000000000000000056bc75e2d63100001" // +1 wei mutation
+  "0000000000000000000000000000000000000000000000056bc75e2d63100001"
 ) as `0x${string}`;
+
 const mutatedMatch = executionMatchesIntent(intent, intent.target, intent.value, mutatedCalldata);
-console.log("  exact match (mutated calldata): ", mutatedMatch);
-console.log();
+console.log("  mutation blocked:", !mutatedMatch, "\n");
 
 // ---------------------------------------------------------------------------
-// Step 7: Check deadline
+// Step 7: Deadline
 // ---------------------------------------------------------------------------
-console.log("Step 7: Check deadline validity");
-console.log("  deadline valid:", isDeadlineValid(intent));
-console.log();
+console.log("Step 7: Deadline");
+console.log("  valid:", isDeadlineValid(intent), "\n");
 
 // ---------------------------------------------------------------------------
-// Step 8: Encode args for on-chain submission
+// Step 8: Encode args
 // ---------------------------------------------------------------------------
-console.log("Step 8: Encode args for enforcer beforeHook");
+console.log("Step 8: Encode args");
 const encoded = encodeIntentArgs(intent, signed.signer, signed.signature);
-console.log("  encoded args (first 66 chars):", encoded.slice(0, 66) + "...");
-console.log("  total bytes:", (encoded.length - 2) / 2);
-console.log();
+console.log("  bytes:", (encoded.length - 2) / 2, "\n");
 
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 console.log("=== Summary ===");
-console.log("Intent created:      yes");
-console.log("EIP-712 digest:      ", digest.slice(0, 20) + "...");
-console.log("Signature valid:     ", valid);
-console.log("Signer recovered:    ", recovered.toLowerCase() === signed.signer.toLowerCase());
-console.log("Execution matches:   ", exactMatch);
-console.log("Mutation blocked:    ", !mutatedMatch);
-console.log("Deadline valid:      ", isDeadlineValid(intent));
-console.log("Args encoded:        yes,", (encoded.length - 2) / 2, "bytes");
-console.log();
-console.log("This flow is what the on-chain enforcer verifies at redemption.");
-console.log("All guarantees are bound in one signed artifact.");
+console.log({
+  valid,
+  recoveredMatches: recovered.toLowerCase() === signed.signer.toLowerCase(),
+  exactMatch,
+  mutationBlocked: !mutatedMatch,
+});
