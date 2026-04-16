@@ -1,3 +1,4 @@
+import "dotenv/config";
 // examples/execution-intent/index.ts
 //
 // Flow B: Execution Intent - atomic commitment
