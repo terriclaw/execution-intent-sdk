@@ -1,14 +1,39 @@
 {
   "name": "execution-intent-sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A minimal SDK for execution-bound commitments on top of delegation-framework primitives",
   "type": "module",
-  "scripts": {
-    "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
-    "example:intent": "npx tsx examples/execution-intent/index.ts",
-    "example:composition": "npx tsx examples/composition/index.ts"
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "example:intent": "npx tsx examples/execution-intent/index.ts",
+    "example:composition": "npx tsx examples/composition/index.ts",
+    "example:onchain": "npx tsx examples/onchain/index.ts"
+  },
+  "keywords": [
+    "execution-intent",
+    "eip712",
+    "delegation",
+    "relayer",
+    "agent",
+    "web3"
+  ],
+  "license": "MIT",
   "dependencies": {
     "dotenv": "^17.4.2",
     "viem": "^2.0.0"
@@ -16,6 +41,7 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
   }
 }

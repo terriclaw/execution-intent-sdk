@@ -5,3 +5,5 @@ export { createIntent, executionMatchesIntent, isDeadlineValid, encodeIntentArgs
 export { buildSigningPayload, signIntent, verifySignedIntent, recoverIntentSigner, wrapSignedIntent, defaultDomain } from "./sign.js";
 export { intentTypedData, hashIntent, dataHash, EXECUTION_INTENT_TYPE_STRING, EXECUTION_INTENT_TYPEHASH } from "./eip712.js";
 export type { ExecutionIntent, SignedIntent, IntentDomain } from "./types.js";
+export { createSequentialNonceManager, randomNonce, timestampNonce, deterministicNonce } from "./nonce.js";
+export type { NonceManager } from "./nonce.js";
