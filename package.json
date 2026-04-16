@@ -10,10 +10,12 @@
     "example:composition": "npx tsx examples/composition/index.ts"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "viem": "^2.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "tsx": "^4.0.0"
+    "@types/node": "^25.6.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
   }
 }
