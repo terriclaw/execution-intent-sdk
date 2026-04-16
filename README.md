@@ -186,3 +186,10 @@ It does not replace composition.
 - Reference enforcer: https://github.com/terriclaw/execution-bound-intent
 - Design research: https://github.com/terriclaw/execution-bound-intent-global-replay
 - MetaMask delegation-framework: https://github.com/MetaMask/delegation-framework
+
+## Further reading
+
+- The Execution Gap (Osobot)  
+  https://www.osoknows.com/caveat/the-execution-gap
+
+  This SDK is a concrete example of the "next phase" described there: moving from primitives to usable patterns, SDKs, and integration flows that preserve execution semantics end-to-end.
