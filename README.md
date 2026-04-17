@@ -23,13 +23,14 @@ All guarantees are committed in one EIP-712 signature:
 - nonce (replay protection)
 - deadline (expiry)
 
-Partial satisfaction is not possible. If any field deviates, enforcement reverts.
+In the execution-bound enforcing flow, partial satisfaction is not possible. If any committed field deviates, onchain enforcement reverts.
 
 ---
 
 ## Install
 
-    npm install execution-intent-sdk
+    # local / GitHub usage for now
+    npm install github:terriclaw/execution-intent-sdk
 
 ---
 
