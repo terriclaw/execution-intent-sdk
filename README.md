@@ -4,6 +4,8 @@ Minimal SDK for execution-bound commitments on top of delegation-framework.
 
     Execution intent turns "what is allowed" into "what must be executed."
 
+Composition defines authority. Execution intent defines the action.
+
 ## Problem
 
 Delegated permissions define what is allowed, but not what is executed.
@@ -35,6 +37,8 @@ Partial satisfaction is not possible. If any field deviates, enforcement reverts
 
     import {
       createIntent,
+      buildSigningPayload,
+      wrapSignedIntent,
       signIntent,
       verifySignedIntent,
       executionMatchesIntent,
@@ -59,7 +63,7 @@ Partial satisfaction is not possible. If any field deviates, enforcement reverts
     // Browser wallet signing
     const payload = buildSigningPayload(intent, domain);
     const sig = await walletClient.signTypedData(payload);
-    const signed = wrapSignedIntent(intent, address, sig);
+    const browserSigned = wrapSignedIntent(intent, address, sig);
 
     // Verify offchain
     const valid = await verifySignedIntent(signed, domain);
@@ -74,7 +78,7 @@ Partial satisfaction is not possible. If any field deviates, enforcement reverts
 
 ## Two approaches
 
-Both flows achieve the same goal: safe third-party execution on behalf of a user.
+Both flows enable safe third-party execution, but express the trust boundary differently.
 
 ### Composable (delegation-framework style)
 
@@ -97,6 +101,8 @@ When to use:
 - composition flexibility matters
 
 ### Execution Intent (this SDK)
+
+This is a redemption-time commitment, not a delegation-time policy.
 
 All guarantees are bundled into one EIP-712 signed artifact at redemption time.
 The signing happens close to execution, not at delegation creation.
@@ -130,7 +136,7 @@ When to use:
       primaryType: payload.primaryType,
       message:     payload.message,
     });
-    const signed = wrapSignedIntent(intent, userAddress, sig);
+    const browserSigned = wrapSignedIntent(intent, userAddress, sig);
 
 See examples/browser-wallet/index.ts for the full integration pattern.
 
@@ -297,7 +303,9 @@ Reference enforcer: https://github.com/terriclaw/execution-bound-intent
     src/
       types.ts     ExecutionIntent, SignedIntent, IntentDomain interfaces
       eip712.ts    EIP-712 type definitions, dataHash, hashIntent
-      intent.ts    createIntent, executionMatchesIntent, isDeadlineValid, encodeIntentArgs
+      intent.ts    createIntent,
+      buildSigningPayload,
+      wrapSignedIntent, executionMatchesIntent, isDeadlineValid, encodeIntentArgs
       sign.ts      signIntent, verifySignedIntent, recoverIntentSigner, buildSigningPayload
       nonce.ts     createSequentialNonceManager, randomNonce, timestampNonce
       relayer.ts   prepareRelayerPayload, validateBeforeSubmission, buildRelayerLogEntry
