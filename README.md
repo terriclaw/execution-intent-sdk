@@ -303,9 +303,7 @@ Reference enforcer: https://github.com/terriclaw/execution-bound-intent
     src/
       types.ts     ExecutionIntent, SignedIntent, IntentDomain interfaces
       eip712.ts    EIP-712 type definitions, dataHash, hashIntent
-      intent.ts    createIntent,
-      buildSigningPayload,
-      wrapSignedIntent, executionMatchesIntent, isDeadlineValid, encodeIntentArgs
+      intent.ts    createIntent, executionMatchesIntent, isDeadlineValid, encodeIntentArgs
       sign.ts      signIntent, verifySignedIntent, recoverIntentSigner, buildSigningPayload, wrapSignedIntent
       nonce.ts     createSequentialNonceManager, randomNonce, timestampNonce
       relayer.ts   prepareRelayerPayload, validateBeforeSubmission, buildRelayerLogEntry
