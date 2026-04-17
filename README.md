@@ -58,7 +58,7 @@ Partial satisfaction is not possible. If any field deviates, enforcement reverts
 
     // Browser wallet signing
     const payload = buildSigningPayload(intent, domain);
-    const sig = await walletClient.signTypedData(payload); // viem, wagmi, MetaMask
+    const sig = await walletClient.signTypedData(payload);
     const signed = wrapSignedIntent(intent, address, sig);
 
     // Verify offchain
@@ -83,7 +83,13 @@ Guarantees are stacked as separate caveats on a delegation:
 - IdEnforcer or NonceEnforcer: replay protection
 - TimestampEnforcer: deadline
 
-Guarantees are expressed independently. The boundary is assembled at enforcement time.
+Each caveat encodes its own terms independently. The boundary is assembled at enforcement time.
+
+The composition example uses real EIP-712 signing and real ABI-encoded caveat terms:
+
+    npm run example:composition
+
+Shows: delegation struct assembled, caveats encoded (ExactExecution: 224 bytes, Id: 32 bytes, Timestamp: 64 bytes), delegation signed by delegator.
 
 When to use:
 - guarantees may be reused independently
@@ -126,19 +132,47 @@ When to use:
     });
     const signed = wrapSignedIntent(intent, userAddress, sig);
 
-    // wagmi
-    const { signTypedData } = useSignTypedData();
-    signTypedData(payload);
-
 See examples/browser-wallet/index.ts for the full integration pattern.
+
+---
+
+## Relayer / backend usage
+
+The SDK provides a clean helper surface for relayer and backend workflows.
+
+    import {
+      prepareRelayerPayload,
+      validateBeforeSubmission,
+      buildRelayerLogEntry,
+    } from "execution-intent-sdk";
+
+    // Bundle everything a relayer needs to submit
+    const payload = prepareRelayerPayload(signed);
+    // payload.encodedArgs  -> ABI-encoded bytes for enforcer beforeHook
+    // payload.intentType   -> "ExecutionBoundIntent" (routing key)
+    // payload.deadlineValid -> offchain deadline check
+
+    // Validate before forwarding
+    const check = validateBeforeSubmission(signed, target, value, calldata);
+    if (!check.valid) {
+      console.error("Intent invalid:", check.reasons);
+    }
+
+    // Structured log entry (intent_type always first)
+    const log = buildRelayerLogEntry(payload);
+    console.log(log);
+    // { intent_type: "ExecutionBoundIntent", account: "0x...", signer: "0x...", ... }
+
+`intent_type` is always the first field — it is a routing key, not metadata.
+Downstream alerts, analytics, and vendors can filter by it.
 
 ---
 
 ## Nonce handling
 
-Nonces in execution intent are scoped to (account, signer). Any value is valid exactly once.
+Nonces are scoped to (account, signer). Any value is valid exactly once.
 
-    import { createSequentialNonceManager, randomNonce } from "execution-intent-sdk";
+    import { createSequentialNonceManager, randomNonce, timestampNonce } from "execution-intent-sdk";
 
     // Sequential — for single-process agents and relayers
     const nonces = createSequentialNonceManager();
@@ -148,11 +182,43 @@ Nonces in execution intent are scoped to (account, signer). Any value is valid e
     const intent = createIntent({ ..., nonce: randomNonce() });
 
     // Timestamp-based — for low-frequency flows
-    import { timestampNonce } from "execution-intent-sdk";
     const intent = createIntent({ ..., nonce: timestampNonce() });
 
-For production distributed systems, coordinate nonce allocation externally
-(database, on-chain query, or a coordination service).
+For production distributed systems, coordinate nonce allocation externally.
+
+---
+
+## Running examples
+
+    npm run example:composition      # Flow A: composable, real EIP-712 + encoded caveats
+    npm run example:intent           # Flow B: full signing/verification/encoding flow
+    npm run example:onchain:local    # Flow B onchain: one-command deploy + proof (requires Anvil)
+
+### One-command local onchain flow
+
+    npm run example:onchain:local
+
+This script:
+1. checks Anvil is installed
+2. starts Anvil automatically
+3. waits until ready
+4. deploys MinimalIntentVerifier
+5. proves: exact execution succeeds, mutated calldata reverts, replay reverts
+6. cleans up Anvil
+
+Prerequisites: Anvil installed (foundryup), PRIVATE_KEY in .env.
+For local testing, Anvil account 0 is used as default if PRIVATE_KEY is not set.
+
+---
+
+## Tests
+
+    npm test
+
+23 tests covering: dataHash, hashIntent, buildSigningPayload, signIntent,
+verifySignedIntent, recoverIntentSigner, executionMatchesIntent,
+isDeadlineValid, encodeIntentArgs. Includes mismatch, wrong signer,
+expired deadline, and ABI encoding shape tests.
 
 ---
 
@@ -161,18 +227,13 @@ For production distributed systems, coordinate nonce allocation externally
 The SDK encodes args compatible with ExecutionBoundCaveat / ExecutionBoundEnforcer:
 
     const args = encodeIntentArgs(intent, signed.signer, signed.signature);
-    // ABI: abi.decode(_args, (ExecutionIntent, address signer, bytes signature))
+    // matches: abi.decode(_args, (ExecutionIntent, address signer, bytes signature))
+
+A minimal Solidity verifier with compiled artifact is included:
+- Contract: examples/onchain/contracts/MinimalIntentVerifier.sol
+- Artifact:  examples/onchain/artifacts/MinimalIntentVerifier.json
 
 Reference enforcer: https://github.com/terriclaw/execution-bound-intent
-
-A minimal Solidity verifier is included with compiled artifact:
-
-    anvil &
-    npm run example:onchain
-
-Proves onchain: exact execution succeeds, mutated calldata reverts (DataHashMismatch), replay reverts (NonceAlreadyUsed).
-
-See examples/onchain/ for the full flow.
 
 ---
 
@@ -217,30 +278,44 @@ See examples/onchain/ for the full flow.
     createSequentialNonceManager(start?)
       In-memory sequential nonce manager.
 
-    randomNonce()
-      Cryptographically random 32-bit nonce.
+    randomNonce() / timestampNonce()
+      Nonce generation helpers.
 
-    timestampNonce()
-      Current timestamp in milliseconds as nonce.
+    prepareRelayerPayload(signed)
+      Bundle signed intent into relayer submission object.
 
----
+    validateBeforeSubmission(signed, target, value, data)
+      Offchain validation before forwarding. Returns { valid, reasons }.
 
-## Examples
-
-    npm run example:intent         # Flow B: full signing/verification/encoding flow
-    npm run example:composition    # Flow A: composable delegation-framework style
-    npm run example:onchain        # Onchain integration structure (requires Anvil)
+    buildRelayerLogEntry(payload)
+      Structured log entry with intent_type as first field.
 
 ---
 
-## Tests
+## Structure
 
-    npm test
+    src/
+      types.ts     ExecutionIntent, SignedIntent, IntentDomain interfaces
+      eip712.ts    EIP-712 type definitions, dataHash, hashIntent
+      intent.ts    createIntent, executionMatchesIntent, isDeadlineValid, encodeIntentArgs
+      sign.ts      signIntent, verifySignedIntent, recoverIntentSigner, buildSigningPayload
+      nonce.ts     createSequentialNonceManager, randomNonce, timestampNonce
+      relayer.ts   prepareRelayerPayload, validateBeforeSubmission, buildRelayerLogEntry
+      index.ts     public SDK surface
 
-23 tests covering: dataHash, hashIntent, buildSigningPayload, signIntent,
-verifySignedIntent, recoverIntentSigner, executionMatchesIntent,
-isDeadlineValid, encodeIntentArgs. Includes mismatch, wrong signer,
-expired deadline, and ABI encoding shape tests.
+    examples/
+      composition/index.ts        Flow A: real EIP-712 delegation + encoded caveats
+      execution-intent/index.ts   Flow B: full signing/verification/encoding
+      browser-wallet/index.ts     Browser wallet integration reference
+      onchain/index.ts            Onchain deploy + proof flow
+      onchain/contracts/          MinimalIntentVerifier.sol
+      onchain/artifacts/          Compiled artifact (no build step needed)
+
+    scripts/
+      run-onchain-example.sh      One-command Anvil + onchain example
+
+    test/
+      sdk.test.ts                 23 tests
 
 ---
 
