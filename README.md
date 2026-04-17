@@ -165,8 +165,14 @@ The SDK encodes args compatible with ExecutionBoundCaveat / ExecutionBoundEnforc
 
 Reference enforcer: https://github.com/terriclaw/execution-bound-intent
 
-A minimal Solidity verifier is included for integration testing:
-See examples/onchain/contracts/MinimalIntentVerifier.sol
+A minimal Solidity verifier is included with compiled artifact:
+
+    anvil &
+    npm run example:onchain
+
+Proves onchain: exact execution succeeds, mutated calldata reverts (DataHashMismatch), replay reverts (NonceAlreadyUsed).
+
+See examples/onchain/ for the full flow.
 
 ---
 
