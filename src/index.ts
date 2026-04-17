@@ -7,3 +7,5 @@ export { intentTypedData, hashIntent, dataHash, EXECUTION_INTENT_TYPE_STRING, EX
 export type { ExecutionIntent, SignedIntent, IntentDomain } from "./types.js";
 export { createSequentialNonceManager, randomNonce, timestampNonce, deterministicNonce } from "./nonce.js";
 export type { NonceManager } from "./nonce.js";
+export { prepareRelayerPayload, validateBeforeSubmission, buildRelayerLogEntry } from "./relayer.js";
+export type { RelayerPayload, ValidationResult } from "./relayer.js";
