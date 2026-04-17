@@ -3,27 +3,27 @@
 //
 // Nonce model:
 //   Nonces in execution intent are scoped to (account, signer).
-//   They are unordered — any value is valid exactly once.
+//   They are unordered — any value is valid exactly once per (account, signer) pair.
 //   The on-chain enforcer tracks: usedNonces[account][signer][nonce]
 //
-// Strategy guidance:
-//   - Sequential: simplest, use for single-agent / single-backend flows
-//   - Random: use for multi-agent or concurrent signing scenarios
-//   - Timestamp-based: readable, low collision for low-frequency flows
-//
-// For production distributed systems, coordinate nonce allocation externally
-// (e.g. via a database or on-chain query). This module covers common local patterns.
+// Concurrency model:
+//   The SDK does not provide distributed coordination.
+//   Each strategy has explicit concurrency properties documented below.
+//   For multi-worker or multi-relayer systems, external coordination is required.
 
 // ---------------------------------------------------------------------------
 // Sequential nonce manager
 // ---------------------------------------------------------------------------
-// Tracks nonces in memory. Suitable for single-process agents and relayers.
-// Not safe across multiple concurrent processes without external coordination.
+// CONCURRENCY: NOT safe across multiple processes or workers.
+// Safe for: single-process agents, single-threaded relayers.
+// Risk: if two workers share the same manager instance (impossible in separate
+//       processes), they would produce duplicate nonces.
+// External coordination required for: multi-process, multi-worker deployments.
 
 export interface NonceManager {
-  next():   bigint;
-  peek():   bigint;
-  reset():  void;
+  next():  bigint;
+  peek():  bigint;
+  reset(): void;
 }
 
 export function createSequentialNonceManager(start = 0n): NonceManager {
@@ -38,9 +38,12 @@ export function createSequentialNonceManager(start = 0n): NonceManager {
 // ---------------------------------------------------------------------------
 // Random nonce
 // ---------------------------------------------------------------------------
-// Generates a cryptographically random 32-bit nonce.
-// Low collision probability for low-frequency flows.
-// Not suitable for high-throughput scenarios without collision checking.
+// CONCURRENCY: Safe across multiple workers with extremely low collision probability.
+// Uses cryptographic randomness (crypto.getRandomValues).
+// Collision probability for 32-bit space: ~1 in 4 billion per pair.
+// For high-throughput systems (>10k intents/day), use 64-bit or larger random space,
+// or switch to external coordination.
+// NOT safe if: same nonce must not be reused and collision risk is unacceptable.
 
 export function randomNonce(): bigint {
   const arr = new Uint32Array(1);
@@ -48,12 +51,20 @@ export function randomNonce(): bigint {
   return BigInt(arr[0]!);
 }
 
+// 64-bit random nonce — lower collision probability for high-throughput systems
+export function randomNonce64(): bigint {
+  const arr = new Uint32Array(2);
+  crypto.getRandomValues(arr);
+  return (BigInt(arr[0]!) << 32n) | BigInt(arr[1]!);
+}
+
 // ---------------------------------------------------------------------------
 // Timestamp-based nonce
 // ---------------------------------------------------------------------------
-// Uses current unix timestamp in milliseconds as nonce.
-// Readable and monotonically increasing within a single process.
-// Collides if two intents are created in the same millisecond.
+// CONCURRENCY: NOT safe for concurrent workers creating intents in the same millisecond.
+// Safe for: low-frequency, single-worker flows where monotonicity is useful.
+// Risk: two workers calling timestampNonce() at the same millisecond produce identical nonces.
+// Use randomNonce() for concurrent scenarios.
 
 export function timestampNonce(): bigint {
   return BigInt(Date.now());
@@ -62,14 +73,39 @@ export function timestampNonce(): bigint {
 // ---------------------------------------------------------------------------
 // Deterministic nonce
 // ---------------------------------------------------------------------------
-// Derives a deterministic nonce from (account, signer, counter).
-// Useful when you need reproducible nonces for testing or audit trails.
-// Not suitable for production without external counter coordination.
+// CONCURRENCY: Safe if counter is coordinated externally.
+// Useful for: reproducible test scenarios, audit trails.
+// External coordination required for: counter allocation in distributed systems.
 
 export function deterministicNonce(account: string, signer: string, counter: bigint): bigint {
-  // Simple hash: xor of account bytes + signer bytes + counter
-  // For production use a proper hash function; this is illustrative.
   const accountNum = BigInt("0x" + account.slice(2).toLowerCase());
   const signerNum  = BigInt("0x" + signer.slice(2).toLowerCase());
   return (accountNum ^ signerNum ^ counter) & BigInt("0xFFFFFFFF");
 }
+
+// ---------------------------------------------------------------------------
+// Nonce strategy guide
+// ---------------------------------------------------------------------------
+//
+// | Strategy    | Concurrency safe? | Use case                          |
+// |-------------|-------------------|-----------------------------------|
+// | sequential  | single process    | single agent, single relayer      |
+// | random32    | multi-worker      | general concurrent use            |
+// | random64    | multi-worker      | high-throughput concurrent use    |
+// | timestamp   | single worker     | low-frequency, auditable flows    |
+// | deterministic | with ext. coord | testing, reproducible flows       |
+//
+// For production multi-worker systems:
+//   - Use randomNonce64() for low coordination overhead
+//   - Or use an external nonce registry (database, on-chain query)
+//   - Always check usedNonces[account][signer][nonce] before submitting
+//
+// What the SDK guarantees:
+//   - Sequential manager produces unique nonces within one process lifetime
+//   - randomNonce() produces cryptographically random values (not guaranteed unique)
+//   - No distributed deduplication — that is the caller's responsibility
+//
+// What the SDK does NOT guarantee:
+//   - Global uniqueness across processes
+//   - Collision freedom for random nonces under high volume
+//   - Distributed coordination of any kind

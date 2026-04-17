@@ -92,4 +92,29 @@ contract MinimalIntentVerifier {
     function domainSeparator() external view returns (bytes32) {
         return DOMAIN_SEPARATOR;
     }
+
+    // Expose intent digest for SDK parity testing.
+    // Returns the same digest the SDK computes via hashIntent().
+    function intentDigest(
+        address account,
+        address target,
+        uint256 value,
+        bytes32 dataHash_,
+        uint256 nonce,
+        uint256 deadline
+    ) external view returns (bytes32) {
+        return keccak256(abi.encodePacked(
+            hex"1901",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(
+                INTENT_TYPEHASH,
+                account,
+                target,
+                value,
+                dataHash_,
+                nonce,
+                deadline
+            ))
+        ));
+    }
 }
