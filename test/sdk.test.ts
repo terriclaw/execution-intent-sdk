@@ -2,6 +2,7 @@
 // Test suite for execution-intent-sdk v1.
 // Run: npm test
 
+import "dotenv/config";
 import { describe, it, expect, beforeAll } from "vitest";
 import { privateKeyToAccount } from "viem/accounts";
 import {
@@ -22,7 +23,7 @@ import type { ExecutionIntent, IntentDomain } from "../src/index.js";
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-const PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as const;
+const PRIVATE_KEY = (process.env.PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`;
 const account = privateKeyToAccount(PRIVATE_KEY);
 
 const CALLDATA = ("0xa9059cbb" +
