@@ -307,7 +307,7 @@ Reference enforcer: https://github.com/terriclaw/execution-bound-intent
       intent.ts    createIntent,
       buildSigningPayload,
       wrapSignedIntent, executionMatchesIntent, isDeadlineValid, encodeIntentArgs
-      sign.ts      signIntent, verifySignedIntent, recoverIntentSigner, buildSigningPayload
+      sign.ts      signIntent, verifySignedIntent, recoverIntentSigner, buildSigningPayload, wrapSignedIntent
       nonce.ts     createSequentialNonceManager, randomNonce, timestampNonce
       relayer.ts   prepareRelayerPayload, validateBeforeSubmission, buildRelayerLogEntry
       index.ts     public SDK surface
