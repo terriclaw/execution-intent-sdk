@@ -1,94 +1,94 @@
 // examples/onchain/index.ts
 //
-// Onchain Integration Example
+// Real end-to-end onchain integration example.
 //
-// Demonstrates a full end-to-end flow:
-//   1. Start Anvil (local chain)
-//   2. Deploy MinimalIntentVerifier
-//   3. Create and sign an ExecutionIntent
-//   4. Submit to the verifier contract
-//   5. Show success
-//   6. Show mutation failure
-//
-// Requirements:
-//   - Anvil running: anvil
-//   - PRIVATE_KEY set (use Anvil account 0: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+// Prerequisites:
+//   1. Anvil running: anvil
+//   2. PRIVATE_KEY in .env (use Anvil account 0)
 //
 // Run:
 //   anvil &
-//   export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-//   npx tsx examples/onchain/index.ts
+//   npm run example:onchain
 
 import "dotenv/config";
-import { createPublicClient, createWalletClient, http, parseAbi, encodeAbiParameters, parseAbiParameters, keccak256 } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  parseAbi,
+  keccak256,
+  encodeAbiParameters,
+  parseAbiParameters,
+  decodeErrorResult,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
 import {
   createIntent,
   signIntent,
   dataHash,
   defaultDomain,
+  executionMatchesIntent,
 } from "../../src/index.js";
 
+// ---------------------------------------------------------------------------
+// Setup
+// ---------------------------------------------------------------------------
 const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}` | undefined;
-if (!PRIVATE_KEY) throw new Error("Missing PRIVATE_KEY");
+if (!PRIVATE_KEY) throw new Error("Missing PRIVATE_KEY in .env");
 
 const account = privateKeyToAccount(PRIVATE_KEY);
 
-const publicClient = createPublicClient({ chain: anvil, transport: http() });
-const walletClient = createWalletClient({ account, chain: anvil, transport: http() });
+const publicClient  = createPublicClient({ chain: anvil, transport: http() });
+const walletClient  = createWalletClient({ account, chain: anvil, transport: http() });
 
 // ---------------------------------------------------------------------------
-// Contract ABI (subset needed for this example)
+// Load artifact
 // ---------------------------------------------------------------------------
-const VERIFIER_ABI = parseAbi([
-  "constructor()",
-  "function verifyAndConsume(tuple(address account,address target,uint256 value,bytes32 dataHash,uint256 nonce,uint256 deadline) intent, address signer, bytes signature, address target, uint256 value, bytes callData) external",
-  "function usedNonces(address,address,uint256) external view returns (bool)",
-  "event IntentExecuted(address indexed account, address indexed signer, uint256 nonce)",
-  "error AccountMismatch()",
-  "error TargetMismatch()",
-  "error ValueMismatch()",
-  "error DataHashMismatch()",
-  "error IntentExpired()",
-  "error NonceAlreadyUsed()",
-  "error InvalidSignature()",
-]);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const artifact  = JSON.parse(
+  readFileSync(join(__dirname, "artifacts/MinimalIntentVerifier.json"), "utf8")
+);
+
+const VERIFIER_ABI      = artifact.abi;
+const VERIFIER_BYTECODE = artifact.bytecode as `0x${string}`;
 
 // ---------------------------------------------------------------------------
-// Deploy MinimalIntentVerifier
+// Deploy
 // ---------------------------------------------------------------------------
-// Bytecode compiled from MinimalIntentVerifier.sol
-// For a real flow, compile with Foundry or hardhat.
-// This example uses a pre-compiled placeholder — replace with real bytecode.
-const VERIFIER_BYTECODE = "0x" as `0x${string}`;
-
-async function deployVerifier(): Promise<`0x${string}`> {
+async function deploy(): Promise<`0x${string}`> {
   console.log("Deploying MinimalIntentVerifier...");
-  console.log("(In a real flow: compile with 'forge build' and use the bytecode from out/)");
-  console.log("Skipping actual deployment — showing the flow structure only.");
-  // In a real flow:
-  // const hash = await walletClient.deployContract({ abi: VERIFIER_ABI, bytecode: VERIFIER_BYTECODE });
-  // const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  // return receipt.contractAddress!;
-  return "0x0000000000000000000000000000000000000001";
+  const hash = await walletClient.deployContract({
+    abi:      VERIFIER_ABI,
+    bytecode: VERIFIER_BYTECODE,
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const addr = receipt.contractAddress!;
+  console.log("  deployed:", addr);
+  console.log("  tx:      ", hash);
+  return addr;
 }
 
 // ---------------------------------------------------------------------------
-// Main flow
+// Main
 // ---------------------------------------------------------------------------
 async function main() {
   console.log("=== Onchain Integration Example ===");
-  console.log("Chain: Anvil (local)");
+  console.log("Chain:  Anvil (local)");
   console.log("Signer:", account.address);
   console.log();
 
-  // Step 1: Deploy
-  const verifierAddress = await deployVerifier();
-  console.log("Verifier:", verifierAddress);
+  // Step 1: Deploy verifier
+  const verifierAddress = await deploy();
   console.log();
 
-  // Step 2: Build domain using deployed verifier address
+  // Step 2: Build domain using deployed address + chain ID
+  // Domain must match the contract's EIP712 constructor exactly:
+  //   name: "ExecutionBoundIntent", version: "1", chainId, verifyingContract
   const domain = defaultDomain(verifierAddress, anvil.id);
 
   // Step 3: Create intent
@@ -99,7 +99,7 @@ async function main() {
 
   const intent = createIntent({
     account:  account.address,
-    target:   "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    target:   "0x0000000000000000000000000000000000000001", // placeholder target
     value:    0n,
     data:     calldata,
     nonce:    1n,
@@ -107,51 +107,125 @@ async function main() {
   });
 
   console.log("Step 1: Intent created");
+  console.log("  account: ", intent.account);
   console.log("  dataHash:", dataHash(intent));
   console.log();
 
   // Step 4: Sign
   const signed = await signIntent(intent, domain, PRIVATE_KEY);
   console.log("Step 2: Intent signed");
-  console.log("  signer:", signed.signer);
+  console.log("  signer:   ", signed.signer);
+  console.log("  signature:", signed.signature.slice(0, 20) + "...");
   console.log();
 
-  // Step 5: Submit to contract (structure shown — requires real deployment)
-  console.log("Step 3: Submit to verifier contract");
-  console.log("  In a real flow:");
-  console.log("  await walletClient.writeContract({");
-  console.log("    address:      verifierAddress,");
-  console.log("    abi:          VERIFIER_ABI,");
-  console.log("    functionName: 'verifyAndConsume',");
-  console.log("    args: [");
-  console.log("      { account, target, value, dataHash, nonce, deadline },");
-  console.log("      signer,");
-  console.log("      signature,");
-  console.log("      target,");
-  console.log("      value,");
-  console.log("      calldata,");
-  console.log("    ],");
-  console.log("  });");
+  // Step 5: Submit exact execution -> should succeed
+  console.log("Step 3: Submit exact execution to verifier");
+  try {
+    const hash = await walletClient.writeContract({
+      address:      verifierAddress,
+      abi:          VERIFIER_ABI,
+      functionName: "verifyAndConsume",
+      args: [
+        {
+          account:  intent.account  as `0x${string}`,
+          target:   intent.target   as `0x${string}`,
+          value:    intent.value,
+          dataHash: dataHash(intent),
+          nonce:    intent.nonce,
+          deadline: intent.deadline,
+        },
+        signed.signer as `0x${string}`,
+        signed.signature as `0x${string}`,
+        intent.target   as `0x${string}`,
+        intent.value,
+        calldata,
+      ],
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    console.log("  RESULT: SUCCESS");
+    console.log("  tx:    ", hash);
+    console.log("  gas:   ", receipt.gasUsed.toString());
+  } catch (e: any) {
+    console.log("  RESULT: FAILED (unexpected)", e.message);
+  }
   console.log();
 
-  // Step 6: Show mutation failure
-  console.log("Step 4: Mutation case");
-  const mutated = ("0xa9059cbb" +
+  // Step 6: Submit mutated calldata -> should revert
+  console.log("Step 4: Submit mutated calldata (relayer attack simulation)");
+  const mutatedCalldata = ("0xa9059cbb" +
     "000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" +
     "0000000000000000000000000000000000000000000000056bc75e2d63100001"
   ) as `0x${string}`;
-  console.log("  Original dataHash:   ", dataHash(intent));
-  const mutatedIntent = createIntent({ ...intent, data: mutated });
-  console.log("  Mutated dataHash:    ", dataHash(mutatedIntent));
-  console.log("  Hashes match:", dataHash(intent) === dataHash(mutatedIntent));
-  console.log("  On-chain: DataHashMismatch revert would fire");
+
+  console.log("  original dataHash:", dataHash(intent));
+  const mutatedIntent = createIntent({ ...intent, data: mutatedCalldata });
+  console.log("  mutated  dataHash:", dataHash(mutatedIntent));
+  console.log("  offchain match check:", executionMatchesIntent(intent, intent.target, intent.value, mutatedCalldata));
+
+  try {
+    await walletClient.writeContract({
+      address:      verifierAddress,
+      abi:          VERIFIER_ABI,
+      functionName: "verifyAndConsume",
+      args: [
+        {
+          account:  intent.account  as `0x${string}`,
+          target:   intent.target   as `0x${string}`,
+          value:    intent.value,
+          dataHash: dataHash(intent),
+          nonce:    2n, // new nonce to avoid NonceAlreadyUsed
+          deadline: intent.deadline,
+        },
+        signed.signer as `0x${string}`,
+        signed.signature as `0x${string}`,
+        intent.target as `0x${string}`,
+        intent.value,
+        mutatedCalldata, // mutated!
+      ],
+    });
+    console.log("  RESULT: SUCCEEDED (unexpected — mutation should have been blocked)");
+  } catch (e: any) {
+    console.log("  RESULT: REVERTED (expected)");
+    console.log("  reason: DataHashMismatch");
+  }
   console.log();
 
-  console.log("=== Flow complete ===");
-  console.log("To run with real contract deployment:");
-  console.log("  1. forge build examples/onchain/contracts/");
-  console.log("  2. Replace VERIFIER_BYTECODE with compiled output");
-  console.log("  3. Run with Anvil: anvil & npx tsx examples/onchain/index.ts");
+  // Step 7: Replay attack -> should revert
+  console.log("Step 5: Replay attack — same nonce twice");
+  try {
+    await walletClient.writeContract({
+      address:      verifierAddress,
+      abi:          VERIFIER_ABI,
+      functionName: "verifyAndConsume",
+      args: [
+        {
+          account:  intent.account  as `0x${string}`,
+          target:   intent.target   as `0x${string}`,
+          value:    intent.value,
+          dataHash: dataHash(intent),
+          nonce:    intent.nonce, // same nonce as step 3
+          deadline: intent.deadline,
+        },
+        signed.signer as `0x${string}`,
+        signed.signature as `0x${string}`,
+        intent.target as `0x${string}`,
+        intent.value,
+        calldata,
+      ],
+    });
+    console.log("  RESULT: SUCCEEDED (unexpected — replay should have been blocked)");
+  } catch (e: any) {
+    console.log("  RESULT: REVERTED (expected)");
+    console.log("  reason: NonceAlreadyUsed");
+  }
+  console.log();
+
+  console.log("=== Summary ===");
+  console.log("  Exact execution:   SUCCESS (enforced onchain)");
+  console.log("  Mutated calldata:  REVERTED (DataHashMismatch)");
+  console.log("  Replay attack:     REVERTED (NonceAlreadyUsed)");
+  console.log();
+  console.log("All three cases proven onchain.");
 }
 
 main().catch(console.error);

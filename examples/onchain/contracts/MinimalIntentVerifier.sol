@@ -1,18 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-
-/// @title MinimalIntentVerifier
-/// @notice Minimal on-chain verifier for execution intent — for SDK demo purposes.
-///
-/// Verifies that a signed ExecutionIntent matches the actual execution at call time.
-/// This is a simplified version of ExecutionBoundCaveat for SDK integration testing.
-///
-/// In production, use ExecutionBoundCaveat or ExecutionBoundEnforcer.
-
-contract MinimalIntentVerifier is EIP712 {
+contract MinimalIntentVerifier {
     struct ExecutionIntent {
         address account;
         address target;
@@ -22,15 +11,20 @@ contract MinimalIntentVerifier is EIP712 {
         uint256 deadline;
     }
 
+    bytes32 private immutable DOMAIN_SEPARATOR;
+
     bytes32 private constant INTENT_TYPEHASH = keccak256(
         "ExecutionIntent(address account,address target,uint256 value,bytes32 dataHash,uint256 nonce,uint256 deadline)"
     );
 
-    mapping(address => mapping(address => mapping(uint256 => bool))) public usedNonces;
+    bytes32 private constant DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );
+
+    mapping(address account => mapping(address signer => mapping(uint256 nonce => bool))) public usedNonces;
 
     event IntentExecuted(address indexed account, address indexed signer, uint256 nonce);
 
-    error AccountMismatch();
     error TargetMismatch();
     error ValueMismatch();
     error DataHashMismatch();
@@ -38,15 +32,16 @@ contract MinimalIntentVerifier is EIP712 {
     error NonceAlreadyUsed();
     error InvalidSignature();
 
-    constructor() EIP712("ExecutionBoundIntent", "1") {}
+    constructor() {
+        DOMAIN_SEPARATOR = keccak256(abi.encode(
+            DOMAIN_TYPEHASH,
+            keccak256("ExecutionBoundIntent"),
+            keccak256("1"),
+            block.chainid,
+            address(this)
+        ));
+    }
 
-    /// @notice Verify and consume an execution intent.
-    /// @param intent     The signed ExecutionIntent.
-    /// @param signer     The address expected to have signed the intent.
-    /// @param signature  EIP-712 signature over the intent.
-    /// @param target     Actual call target.
-    /// @param value      Actual ETH value.
-    /// @param callData   Actual calldata.
     function verifyAndConsume(
         ExecutionIntent calldata intent,
         address signer,
@@ -55,28 +50,46 @@ contract MinimalIntentVerifier is EIP712 {
         uint256 value,
         bytes calldata callData
     ) external {
-        if (intent.account != msg.sender) revert AccountMismatch();
-        if (intent.target  != target)     revert TargetMismatch();
-        if (intent.value   != value)      revert ValueMismatch();
+        if (intent.target   != target)              revert TargetMismatch();
+        if (intent.value    != value)               revert ValueMismatch();
         if (intent.dataHash != keccak256(callData)) revert DataHashMismatch();
         if (intent.deadline != 0 && block.timestamp > intent.deadline) revert IntentExpired();
         if (usedNonces[intent.account][signer][intent.nonce]) revert NonceAlreadyUsed();
 
         usedNonces[intent.account][signer][intent.nonce] = true;
 
-        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(
-            INTENT_TYPEHASH,
-            intent.account,
-            intent.target,
-            intent.value,
-            intent.dataHash,
-            intent.nonce,
-            intent.deadline
-        )));
+        bytes32 digest = keccak256(abi.encodePacked(
+            hex"1901",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(
+                INTENT_TYPEHASH,
+                intent.account,
+                intent.target,
+                intent.value,
+                intent.dataHash,
+                intent.nonce,
+                intent.deadline
+            ))
+        ));
 
-        address recovered = ECDSA.recover(digest, signature);
+        address recovered = _recover(digest, signature);
         if (recovered != signer) revert InvalidSignature();
 
         emit IntentExecuted(intent.account, signer, intent.nonce);
+    }
+
+    function _recover(bytes32 digest, bytes calldata sig) internal pure returns (address) {
+        require(sig.length == 65, "bad sig length");
+        bytes32 r; bytes32 s; uint8 v;
+        assembly {
+            r := calldataload(sig.offset)
+            s := calldataload(add(sig.offset, 32))
+            v := byte(0, calldataload(add(sig.offset, 64)))
+        }
+        return ecrecover(digest, v, r, s);
+    }
+
+    function domainSeparator() external view returns (bytes32) {
+        return DOMAIN_SEPARATOR;
     }
 }
