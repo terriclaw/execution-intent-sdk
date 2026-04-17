@@ -214,7 +214,6 @@ This script:
 6. cleans up Anvil
 
 Prerequisites: Anvil installed (foundryup), PRIVATE_KEY in .env.
-For local testing, Anvil account 0 is used as default if PRIVATE_KEY is not set.
 
 ---
 
