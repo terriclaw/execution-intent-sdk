@@ -197,9 +197,33 @@ For production distributed systems, coordinate nonce allocation externally.
 
 ## Running examples
 
-    npm run example:composition      # Flow A: composable, real EIP-712 + encoded caveats
-    npm run example:intent           # Flow B: full signing/verification/encoding flow
-    npm run example:onchain:local    # Flow B onchain: one-command deploy + proof (requires Anvil)
+    npm run example:composition          # Flow A: composable, real EIP-712 + encoded caveats
+    npm run example:composition:real      # Flow A: real delegation-framework redemption (requires execution-bound-intent repo + forge)
+    npm run example:intent               # Flow B: full signing/verification/encoding flow
+    npm run example:onchain:local        # Flow B onchain: one-command deploy + proof (requires Anvil)
+
+### Real delegation-framework composition flow
+
+    npm run example:composition:real
+
+Runs a real end-to-end composition flow through actual MetaMask delegation-framework contracts:
+- HybridDeleGator smart account as delegator
+- ExactExecutionEnforcer + TimestampEnforcer + IdEnforcer stacked as caveats
+- DelegationManager.redeemDelegations as the redemption path
+
+Four cases proven:
+1. Exact execution succeeds
+2. Mutated calldata reverts (ExactExecutionEnforcer)
+3. Replay reverts (IdEnforcer)
+4. Expired delegation reverts (TimestampEnforcer)
+
+Prerequisites: execution-bound-intent repo cloned locally, forge installed.
+See: https://github.com/terriclaw/execution-bound-intent/blob/master/test/CompositionFlow.t.sol
+
+Important difference from execution-intent path:
+- calldata is committed at delegation time (not redemption time)
+- guarantees are enforced independently by separate contracts
+- no per-execution signer authorization
 
 ### One-command local onchain flow
 
