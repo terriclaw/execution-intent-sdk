@@ -318,7 +318,7 @@ Reference enforcer: https://github.com/terriclaw/execution-bound-intent
     prepareRelayerPayload(signed)
       Bundle signed intent into relayer submission object.
 
-    validateBeforeSubmission(signed, intent.target, intent.value, intent.data)
+    validateBeforeSubmission(signed, target, value, data)
       Offchain validation before forwarding. Returns { valid, reasons, codes }.
       Failure codes: DEADLINE_EXPIRED, EXECUTION_MISMATCH, INVALID_SIGNATURE, NONCE_REUSE_RISK
 
