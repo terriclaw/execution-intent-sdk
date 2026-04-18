@@ -64,6 +64,7 @@ In the execution-bound enforcing flow, partial satisfaction is not possible. If 
     const payload = buildSigningPayload(intent, domain);
     const sig = await walletClient.signTypedData(payload);
     const browserSigned = wrapSignedIntent(intent, userAddress, sig);
+    // Use either `signed` (backend) OR `browserSigned` (wallet) below
 
     // Verify offchain
     const valid = await verifySignedIntent(signed, domain);
@@ -159,7 +160,7 @@ The SDK provides a clean helper surface for relayer and backend workflows.
     // payload.deadlineValid -> offchain deadline check
 
     // Validate before forwarding
-    const check = validateBeforeSubmission(signed, target, value, calldata);
+    const check = validateBeforeSubmission(signed, intent.target, intent.value, intent.data);
     if (!check.valid) {
       console.error("Intent invalid:", check.reasons);
     }
