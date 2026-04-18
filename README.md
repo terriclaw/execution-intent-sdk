@@ -244,7 +244,8 @@ Prerequisites: Anvil installed (foundryup), PRIVATE_KEY in .env.
 
 ## Tests
 
-    npm run test:all
+    npm test              # unit tests only (fast, no Anvil)
+    npm run test:all      # full suite including parity tests (starts Anvil)
 
 62 tests across:
 - sdk.test.ts — core SDK functions
