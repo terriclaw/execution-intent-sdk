@@ -317,7 +317,8 @@ Reference enforcer: https://github.com/terriclaw/execution-bound-intent
       Bundle signed intent into relayer submission object.
 
     validateBeforeSubmission(signed, target, value, data)
-      Offchain validation before forwarding. Returns { valid, reasons }.
+      Offchain validation before forwarding. Returns { valid, reasons, codes }.
+      Failure codes: DEADLINE_EXPIRED, EXECUTION_MISMATCH, INVALID_SIGNATURE, NONCE_REUSE_RISK
 
     buildRelayerLogEntry(payload)
       Structured log entry with intent_type as first field.
@@ -347,7 +348,10 @@ Reference enforcer: https://github.com/terriclaw/execution-bound-intent
       run-onchain-example.sh      One-command Anvil + onchain example
 
     test/
-      sdk.test.ts                 23 tests
+      sdk.test.ts       core SDK functions
+      nonce.test.ts     nonce strategies and concurrency
+      relayer.test.ts   payload shape and failure codes
+      parity.test.ts    SDK ↔ onchain parity (requires Anvil)
 
 ---
 
