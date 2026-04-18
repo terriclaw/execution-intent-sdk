@@ -26,7 +26,7 @@
     "example:onchain:local": "bash scripts/run-onchain-example.sh",
     "example:composition:real": "bash scripts/run-composition-real.sh",
     "test:all": "bash scripts/test-all.sh",
-    "consumer:test": "cd consumer-test && npm install --silent && npx tsx index.ts",
+    "consumer:test": "npm run build && cd consumer-test && npm install --silent && npx tsx index.ts",
     "prepublishOnly": "npm run build && npm run typecheck"
   },
   "keywords": [
