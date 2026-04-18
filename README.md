@@ -29,8 +29,7 @@ In the execution-bound enforcing flow, partial satisfaction is not possible. If 
 
 ## Install
 
-    # local / GitHub usage for now
-    npm install github:terriclaw/execution-intent-sdk
+    npm install execution-intent-sdk
 
 ---
 
