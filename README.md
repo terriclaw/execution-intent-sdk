@@ -57,19 +57,19 @@ In the execution-bound enforcing flow, partial satisfaction is not possible. If 
       deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
     });
 
-    // Backend / agent signing
-    const signed = await signIntent(intent, domain, privateKey);
+    // Backend / agent signing (privateKey from env or key management)
+    const signed = await signIntent(intent, domain, process.env.PRIVATE_KEY);
 
-    // Browser wallet signing
+    // Browser wallet signing (walletClient from viem/wagmi, address from wallet)
     const payload = buildSigningPayload(intent, domain);
     const sig = await walletClient.signTypedData(payload);
-    const browserSigned = wrapSignedIntent(intent, address, sig);
+    const browserSigned = wrapSignedIntent(intent, userAddress, sig);
 
     // Verify offchain
     const valid = await verifySignedIntent(signed, domain);
 
     // Check execution matches intent (mirrors on-chain enforcement)
-    const ok = executionMatchesIntent(intent, target, value, calldata);
+    const ok = executionMatchesIntent(intent, intent.target, intent.value, intent.data);
 
     // Encode for on-chain submission
     const args = encodeIntentArgs(intent, signed.signer, signed.signature);
