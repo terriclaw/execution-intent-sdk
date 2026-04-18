@@ -13,7 +13,6 @@
   },
   "files": [
     "dist",
-    "src",
     "README.md"
   ],
   "scripts": {
@@ -27,7 +26,8 @@
     "example:onchain:local": "bash scripts/run-onchain-example.sh",
     "example:composition:real": "bash scripts/run-composition-real.sh",
     "test:all": "bash scripts/test-all.sh",
-    "consumer:test": "cd consumer-test && npm install --silent && npx tsx index.ts"
+    "consumer:test": "cd consumer-test && npm install --silent && npx tsx index.ts",
+    "prepublishOnly": "npm run build && npm run typecheck"
   },
   "keywords": [
     "execution-intent",
@@ -47,5 +47,14 @@
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "vitest": "^3.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/terriclaw/execution-intent-sdk.git"
+  },
+  "homepage": "https://github.com/terriclaw/execution-intent-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/terriclaw/execution-intent-sdk/issues"
+  },
+  "module": "./dist/index.js"
 }

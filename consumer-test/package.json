@@ -7,7 +7,7 @@
     "test": "npx tsx index.ts"
   },
   "dependencies": {
-    "execution-intent-sdk": "file:.."
+    "execution-intent-sdk": "file:../execution-intent-sdk-1.0.0.tgz"
   },
   "devDependencies": {
     "tsx": "^4.0.0"
