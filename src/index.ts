@@ -8,4 +8,4 @@ export type { ExecutionIntent, SignedIntent, IntentDomain } from "./types.js";
 export { createSequentialNonceManager, randomNonce, randomNonce64, timestampNonce, deterministicNonce } from "./nonce.js";
 export type { NonceManager } from "./nonce.js";
 export { prepareRelayerPayload, validateBeforeSubmission, buildRelayerLogEntry } from "./relayer.js";
-export type { RelayerPayload, ValidationResult } from "./relayer.js";
+export type { RelayerPayload, ValidationResult, FailureCode } from "./relayer.js";

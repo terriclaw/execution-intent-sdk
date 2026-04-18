@@ -25,7 +25,9 @@
     "example:composition": "npx tsx examples/composition/index.ts",
     "example:onchain": "npx tsx examples/onchain/index.ts",
     "example:onchain:local": "bash scripts/run-onchain-example.sh",
-    "example:composition:real": "bash scripts/run-composition-real.sh"
+    "example:composition:real": "bash scripts/run-composition-real.sh",
+    "test:all": "bash scripts/test-all.sh",
+    "consumer:test": "cd consumer-test && npm install --silent && npx tsx index.ts"
   },
   "keywords": [
     "execution-intent",
