@@ -7,8 +7,7 @@
 //   2. PRIVATE_KEY in .env (use Anvil account 0)
 //
 // Run:
-//   anvil &
-//   npm run example:onchain
+//   npm run example:onchain:local
 
 import "dotenv/config";
 import {
