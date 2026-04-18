@@ -89,7 +89,7 @@ Guarantees are stacked as separate caveats on a delegation:
 
 Each caveat encodes its own terms independently. The boundary is assembled at enforcement time.
 
-The composition example uses real EIP-712 signing and real ABI-encoded caveat terms:
+The delegator signs the delegation once; enforcement happens via caveats at redemption:
 
     npm run example:composition
 
@@ -110,7 +110,7 @@ The signing happens close to execution, not at delegation creation.
 When to use:
 - a specific agent must authorize exact execution
 - calldata is determined near execution time, not at delegation time
-- partial satisfaction changes the trust assumption
+- partial satisfaction weakens the trust boundary
 
 ---
 
@@ -155,7 +155,7 @@ The SDK provides a clean helper surface for relayer and backend workflows.
     // Bundle everything a relayer needs to submit
     const payload = prepareRelayerPayload(signed);
     // payload.encodedArgs  -> ABI-encoded bytes for enforcer beforeHook
-    // payload.intentType   -> "ExecutionBoundIntent" (routing key)
+    // payload.intent_type   -> "ExecutionBoundIntent" (routing key)
     // payload.deadlineValid -> offchain deadline check
 
     // Validate before forwarding
@@ -168,6 +168,8 @@ The SDK provides a clean helper surface for relayer and backend workflows.
     const log = buildRelayerLogEntry(payload);
     console.log(log);
     // { intent_type: "ExecutionBoundIntent", account: "0x...", signer: "0x...", ... }
+
+This payload is the exact boundary a relayer forwards onchain.
 
 `intent_type` is always the first field — it is a routing key, not metadata.
 Downstream alerts, analytics, and vendors can filter by it.
@@ -242,12 +244,13 @@ Prerequisites: Anvil installed (foundryup), PRIVATE_KEY in .env.
 
 ## Tests
 
-    npm test
+    npm run test:all
 
-23 tests covering: dataHash, hashIntent, buildSigningPayload, signIntent,
-verifySignedIntent, recoverIntentSigner, executionMatchesIntent,
-isDeadlineValid, encodeIntentArgs. Includes mismatch, wrong signer,
-expired deadline, and ABI encoding shape tests.
+62 tests across:
+- sdk.test.ts — core SDK functions
+- nonce.test.ts — nonce strategies and concurrency properties
+- relayer.test.ts — payload shape, failure codes, log entry format
+- parity.test.ts — SDK ↔ onchain byte-for-byte compatibility (requires Anvil)
 
 ---
 
