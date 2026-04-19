@@ -6,6 +6,10 @@ Minimal SDK for execution-bound commitments on top of delegation-framework.
 
 Composition defines authority. Execution intent defines the action.
 
+## Context
+
+This SDK is for delegated execution systems where a user or smart account grants authority to an agent or relayer, and an onchain enforcer contract checks whether the submitted action is valid. The key actors are: the account authorizing the action, the signer approving the exact execution, and the enforcer contract validating the commitment at redemption.
+
 ## Problem
 
 Delegated permissions define what is allowed, but not what is executed.
@@ -25,6 +29,8 @@ All guarantees are committed in one EIP-712 signature:
 
 In the execution-bound enforcing flow, partial satisfaction is not possible. If any committed field deviates, onchain enforcement reverts.
 
+The SDK is parity-tested against onchain verification — the signed payload, digest, and encoded args are proven byte-for-byte compatible with the enforcing contract.
+
 ---
 
 ## Install
@@ -37,8 +43,6 @@ In the execution-bound enforcing flow, partial satisfaction is not possible. If 
 
     import {
       createIntent,
-      buildSigningPayload,
-      wrapSignedIntent,
       signIntent,
       verifySignedIntent,
       executionMatchesIntent,
@@ -49,7 +53,7 @@ In the execution-bound enforcing flow, partial satisfaction is not possible. If 
     const domain = defaultDomain("0xYourEnforcer", 84532);
 
     const intent = createIntent({
-      account:  "0xYourSmartAccount",
+      account:  "0xYourSmartAccount", // account the execution is authorized for
       target:   "0xUSDC",
       value:    0n,
       data:     "0xa9059cbb...",
@@ -57,14 +61,8 @@ In the execution-bound enforcing flow, partial satisfaction is not possible. If 
       deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
     });
 
-    // Backend / agent signing (privateKey from env or key management)
+    // Sign with a private key (backend / agent)
     const signed = await signIntent(intent, domain, process.env.PRIVATE_KEY);
-
-    // Browser wallet signing (walletClient from viem/wagmi, address from wallet)
-    const payload = buildSigningPayload(intent, domain);
-    const sig = await walletClient.signTypedData(payload);
-    const browserSigned = wrapSignedIntent(intent, userAddress, sig);
-    // Use either `signed` (backend) OR `browserSigned` (wallet) below
 
     // Verify offchain
     const valid = await verifySignedIntent(signed, domain);
@@ -74,6 +72,8 @@ In the execution-bound enforcing flow, partial satisfaction is not possible. If 
 
     // Encode for on-chain submission
     const args = encodeIntentArgs(intent, signed.signer, signed.signature);
+
+For browser wallet signing, see: Signing contexts below.
 
 ---
 
@@ -172,8 +172,7 @@ The SDK provides a clean helper surface for relayer and backend workflows.
 
 This payload is the exact boundary a relayer forwards onchain.
 
-`intent_type` is always the first field — it is a routing key, not metadata.
-Downstream alerts, analytics, and vendors can filter by it.
+`intent_type` is the routing key relayers and downstream systems use to distinguish execution-bound payloads from other delegated actions. It is always the first field — alerts, analytics, and vendors can filter by it.
 
 ---
 
@@ -193,7 +192,7 @@ Nonces are scoped to (account, signer). Any value is valid exactly once.
     // Timestamp-based — for low-frequency flows
     const intent = createIntent({ ..., nonce: timestampNonce() });
 
-For production distributed systems, coordinate nonce allocation externally.
+For production distributed systems, coordinate nonce allocation externally. Nonce uniqueness is enforced by the onchain verifier / enforcer at redemption.
 
 ---
 
