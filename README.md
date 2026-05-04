@@ -26,6 +26,15 @@ It is designed to sit **on top of** broader delegation / policy systems when exa
 
 ![execution-intent-sdk architecture](./assets/execution-intent-stack.svg)
 
+## Where this fits in a wallet stack
+
+- **Wallet / delegation layer** — decides whether an agent may act at all (broad policy, caveats, standing authority)
+- **execution-intent-sdk** — binds the exact action when the risk is high (this repo)
+- **Relayer / executor** — submits the signed payload without mutation
+- **Onchain verifier / enforcer** — checks exact match, rejects mutation and replay
+
+This SDK lives between the delegation layer and the relayer. It is the commitment layer.
+
 ## Context
 
 This SDK is for delegated execution systems where a user or smart account grants authority to an agent or relayer, and an onchain enforcer contract checks whether the submitted action is valid. The key actors are: the account authorizing the action, the signer approving the exact execution, and the enforcer contract validating the commitment at redemption.
@@ -51,6 +60,12 @@ In the execution-bound enforcing flow, partial satisfaction is not possible. If 
 
 The SDK is parity-tested against onchain verification — the signed payload, digest, and encoded args are proven byte-for-byte compatible with the enforcing contract.
 
+## Why this matters
+
+- Broad policy approval can still allow the wrong exact calldata — a relayer can mutate parameters within policy bounds and pass validation silently.
+- This SDK binds the exact action: target, calldata, signer, nonce, and deadline are all committed in one signed artifact.
+- Useful for high-risk wallet and agent actions where "allowed to act" is not sufficient — you need "authorized to do exactly this."
+
 ---
 
 ## Current repo status
@@ -71,6 +86,17 @@ Remaining work is primarily **adoption, integration, and production usage**, not
 ## Install
 
     npm install execution-intent-sdk
+
+---
+
+## How to evaluate this repo quickly
+
+    npm install execution-intent-sdk   # install from npm
+    npm test                           # unit tests (fast, no Anvil)
+    npm run test:all                   # full suite: unit + parity + onchain (starts Anvil)
+    npm run example:onchain:local      # real deploy + exact execution proof on local chain
+
+The parity tests (`test:all`) prove the SDK output is byte-for-byte compatible with the included onchain verifier.
 
 ---
 
@@ -414,6 +440,24 @@ It does not replace composition.
 
 Useful when exact execution intent is the trust boundary:
 agents, relayers, and third-party execution flows where partial satisfaction is unsafe.
+
+---
+
+## What is proven here
+
+- EIP-712 signing, verification, and signer recovery
+- Byte-for-byte parity between SDK output and the included onchain verifier (digest, encoded args, execution matching)
+- Onchain mutation rejection and replay rejection via the included `MinimalIntentVerifier`
+- Relayer payload encoding and structured failure classification
+- A real end-to-end composition flow is included via `example:composition:real`, but it depends on the separate `execution-bound-intent` repo and forge
+- External consumer install works cleanly via `npm install execution-intent-sdk`
+
+## What is not proven here
+
+- Production adoption or battle-tested usage
+- Universal multi-framework integration beyond the included verifier/example paths
+- Distributed nonce coordination (documented as caller responsibility)
+- Full wallet UX integration (browser-wallet example is a reference pattern, not a running app)
 
 ---
 
