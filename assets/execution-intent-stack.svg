@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 280" width="1060" height="280" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace">
+
+  <!-- Background -->
+  <rect width="1060" height="280" fill="#0d1117" rx="10"/>
+
+  <!-- ── Box 1: Policy / Delegation ── -->
+  <rect x="20" y="40" width="210" height="160" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+  <text x="125" y="72" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="600" letter-spacing="0.5">POLICY / DELEGATION</text>
+  <line x1="40" y1="82" x2="210" y2="82" stroke="#30363d" stroke-width="1"/>
+  <text x="125" y="104" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Standing Authority</text>
+  <text x="125" y="124" text-anchor="middle" fill="#8b949e" font-size="11">Can this agent act at all?</text>
+  <text x="125" y="148" text-anchor="middle" fill="#6e7681" font-size="10">broad scope</text>
+  <text x="125" y="164" text-anchor="middle" fill="#6e7681" font-size="10">reusable permissions</text>
+  <text x="125" y="180" text-anchor="middle" fill="#6e7681" font-size="10">caveats / limits</text>
+
+  <!-- Arrow 1 -->
+  <line x1="232" y1="120" x2="268" y2="120" stroke="#30363d" stroke-width="1.5"/>
+  <polygon points="268,115 278,120 268,125" fill="#30363d"/>
+
+  <!-- ── Box 2: execution-intent-sdk (highlighted) ── -->
+  <rect x="280" y="30" width="230" height="180" rx="8" fill="#161b22" stroke="#388bfd" stroke-width="2"/>
+  <rect x="280" y="30" width="230" height="34" rx="8" fill="#1c2d45"/>
+  <rect x="280" y="52" width="230" height="12" rx="0" fill="#1c2d45"/>
+  <text x="395" y="52" text-anchor="middle" fill="#388bfd" font-size="11" font-weight="700" letter-spacing="0.5">EXECUTION-INTENT-SDK</text>
+  <line x1="300" y1="64" x2="490" y2="64" stroke="#388bfd" stroke-width="0.75" opacity="0.4"/>
+  <text x="395" y="86" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Exact Action Commitment</text>
+  <text x="395" y="106" text-anchor="middle" fill="#8b949e" font-size="11">Is this exact action authorized?</text>
+  <text x="395" y="132" text-anchor="middle" fill="#6e7681" font-size="10">target  ·  calldata  ·  signer</text>
+  <text x="395" y="150" text-anchor="middle" fill="#6e7681" font-size="10">nonce  ·  deadline</text>
+  <text x="395" y="175" text-anchor="middle" fill="#388bfd" font-size="10" opacity="0.8">EIP-712 signed artifact</text>
+
+  <!-- Arrow 2 -->
+  <line x1="512" y1="120" x2="548" y2="120" stroke="#30363d" stroke-width="1.5"/>
+  <polygon points="548,115 558,120 548,125" fill="#30363d"/>
+
+  <!-- ── Box 3: Relayer / Executor ── -->
+  <rect x="560" y="40" width="210" height="160" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+  <text x="665" y="72" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="600" letter-spacing="0.5">RELAYER / EXECUTOR</text>
+  <line x1="580" y1="82" x2="750" y2="82" stroke="#30363d" stroke-width="1"/>
+  <text x="665" y="104" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Submits Payload</text>
+  <text x="665" y="124" text-anchor="middle" fill="#8b949e" font-size="11">forwards encoded args</text>
+  <text x="665" y="148" text-anchor="middle" fill="#6e7681" font-size="10">no mutation allowed</text>
+  <text x="665" y="164" text-anchor="middle" fill="#6e7681" font-size="10">intent_type preserved</text>
+  <text x="665" y="180" text-anchor="middle" fill="#6e7681" font-size="10">log / route / alert by type</text>
+
+  <!-- Arrow 3 -->
+  <line x1="772" y1="120" x2="808" y2="120" stroke="#30363d" stroke-width="1.5"/>
+  <polygon points="808,115 818,120 808,125" fill="#30363d"/>
+
+  <!-- ── Box 4: Onchain Verifier ── -->
+  <rect x="820" y="40" width="220" height="160" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+  <text x="930" y="72" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="600" letter-spacing="0.5">ONCHAIN ENFORCER</text>
+  <line x1="840" y1="82" x2="1020" y2="82" stroke="#30363d" stroke-width="1"/>
+  <text x="930" y="104" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="600">Checks Exact Match</text>
+  <text x="930" y="124" text-anchor="middle" fill="#8b949e" font-size="11">validates commitment</text>
+  <text x="930" y="148" text-anchor="middle" fill="#3fb950" font-size="10">&#10003; exact execution → pass</text>
+  <text x="930" y="164" text-anchor="middle" fill="#f85149" font-size="10">&#10007; mutation / replay → revert</text>
+  <text x="930" y="180" text-anchor="middle" fill="#6e7681" font-size="10">ExecutionBoundCaveat</text>
+
+  <!-- Bottom caption -->
+  <text x="530" y="250" text-anchor="middle" fill="#6e7681" font-size="11" font-style="italic">Policy defines authority.  Execution intent defines the action.</text>
+
+</svg>
