@@ -6,6 +6,24 @@ Minimal SDK for execution-bound commitments on top of delegation-framework.
 
 Composition defines authority. Execution intent defines the action.
 
+## What this repo is / is not
+
+This repo is a **TypeScript SDK** for execution-bound commitments in delegated wallet / agent systems.
+
+It is:
+- a signing / verification / encoding layer for exact execution commitments
+- usable from backend agents, relayers, and browser-wallet signing flows
+- parity-tested against the included onchain verifier
+
+It is not:
+- a wallet
+- a relayer
+- a full delegation framework
+- a complete browser app
+
+It is designed to sit **on top of** broader delegation / policy systems when exact action binding is required.
+
+
 ## Context
 
 This SDK is for delegated execution systems where a user or smart account grants authority to an agent or relayer, and an onchain enforcer contract checks whether the submitted action is valid. The key actors are: the account authorizing the action, the signer approving the exact execution, and the enforcer contract validating the commitment at redemption.
@@ -30,6 +48,21 @@ All guarantees are committed in one EIP-712 signature:
 In the execution-bound enforcing flow, partial satisfaction is not possible. If any committed field deviates, onchain enforcement reverts.
 
 The SDK is parity-tested against onchain verification — the signed payload, digest, and encoded args are proven byte-for-byte compatible with the enforcing contract.
+
+---
+
+## Current repo status
+
+Current state of the repo:
+
+- complete at the SDK engineering layer
+- published on npm
+- parity-tested against the included onchain verifier
+- includes backend signing and browser-wallet signing support
+- includes a real onchain example and verifier artifact
+- includes composition comparison examples
+
+Remaining work is primarily **adoption, integration, and production usage**, not unfinished core SDK implementation.
 
 ---
 
@@ -115,6 +148,19 @@ When to use:
 
 ---
 
+## Best fit use cases
+
+This SDK is a good fit for:
+
+- delegated wallet / agent systems where broad policy is not enough
+- high-risk, money-moving, irreversible, or permission-changing actions
+- wallet / smart-account flows that need exact action commitment
+- backend or browser signing flows that need exact calldata, signer, nonce, and deadline binding
+
+Use broader delegation / policy systems for standing authority. Use this SDK when the safety property depends on **one exact action** being authorized and enforced.
+
+---
+
 ## Signing contexts
 
 ### Backend / agent (private key)
@@ -140,6 +186,8 @@ When to use:
     const browserSigned = wrapSignedIntent(intent, userAddress, sig);
 
 See examples/browser-wallet/index.ts for the full integration pattern.
+
+This is a **reference integration pattern**, not a full browser demo app.
 
 ---
 
@@ -219,6 +267,7 @@ Four cases proven:
 4. Expired delegation reverts (TimestampEnforcer)
 
 Prerequisites: execution-bound-intent repo cloned locally, forge installed.
+This flow is **real**, but it is **not self-contained in this package** — it depends on the separate `execution-bound-intent` repo.
 See: https://github.com/terriclaw/execution-bound-intent/blob/master/test/CompositionFlow.t.sol
 
 Important difference from execution-intent path:
