@@ -24,6 +24,8 @@ It is not:
 It is designed to sit **on top of** broader delegation / policy systems when exact action binding is required.
 
 
+![execution-intent-sdk architecture](./assets/execution-intent-stack.svg)
+
 ## Context
 
 This SDK is for delegated execution systems where a user or smart account grants authority to an agent or relayer, and an onchain enforcer contract checks whether the submitted action is valid. The key actors are: the account authorizing the action, the signer approving the exact execution, and the enforcer contract validating the commitment at redemption.
