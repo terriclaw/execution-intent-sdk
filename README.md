@@ -28,16 +28,14 @@ It is designed to sit **on top of** broader delegation / policy systems when exa
 
 ## Where this fits in a wallet stack
 
+In delegated execution systems, a smart account grants authority to an agent or relayer. An onchain enforcer contract then checks whether the submitted action is valid at redemption time.
+
 - **Wallet / delegation layer** — decides whether an agent may act at all (broad policy, caveats, standing authority)
 - **execution-intent-sdk** — binds the exact action when the risk is high (this repo)
 - **Relayer / executor** — submits the signed payload without mutation
-- **Onchain verifier / enforcer** — checks exact match, rejects mutation and replay
+- **Onchain verifier / enforcer** — checks exact match at redemption, rejects mutation and replay
 
 This SDK lives between the delegation layer and the relayer. It is the commitment layer.
-
-## Context
-
-This SDK is for delegated execution systems where a user or smart account grants authority to an agent or relayer, and an onchain enforcer contract checks whether the submitted action is valid. The key actors are: the account authorizing the action, the signer approving the exact execution, and the enforcer contract validating the commitment at redemption.
 
 ## Problem
 
@@ -58,28 +56,19 @@ All guarantees are committed in one EIP-712 signature:
 
 In the execution-bound enforcing flow, partial satisfaction is not possible. If any committed field deviates, onchain enforcement reverts.
 
-The SDK is parity-tested against onchain verification — the signed payload, digest, and encoded args are proven byte-for-byte compatible with the enforcing contract.
-
 ## Why this matters
 
 - Broad policy approval can still allow the wrong exact calldata — a relayer can mutate parameters within policy bounds and pass validation silently.
 - This SDK binds the exact action: target, calldata, signer, nonce, and deadline are all committed in one signed artifact.
 - Useful for high-risk wallet and agent actions where "allowed to act" is not sufficient — you need "authorized to do exactly this."
 
+**Example:** A user delegates to an agent with a policy of "swap up to 1,000 USDC." The policy permits any swap within that limit. A malicious or misconfigured relayer could route through a bad pool, set a harmful slippage, or send to the wrong recipient — and the policy check would still pass. An execution intent binds the exact calldata, target, and signer at the moment of execution, so any deviation reverts.
+
 ---
 
 ## Current repo status
 
-Current state of the repo:
-
-- complete at the SDK engineering layer
-- published on npm
-- parity-tested against the included onchain verifier
-- includes backend signing and browser-wallet signing support
-- includes a real onchain example and verifier artifact
-- includes composition comparison examples
-
-Remaining work is primarily **adoption, integration, and production usage**, not unfinished core SDK implementation.
+Published on npm. Complete at the SDK engineering layer. Remaining work is adoption and production integration, not unfinished core implementation. See [What is proven here](#what-is-proven-here) for the honest scope.
 
 ---
 
